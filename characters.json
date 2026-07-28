@@ -1,0 +1,23 @@
+{
+  "_note": "Snapshot of your Higgsfield characters, synced by Claude via MCP. Elements work with video models (Kling/Seedance) via <<<id>>> in the prompt. Souls work only with Soul image models. Ask Claude to 'refresh my characters' to re-sync.",
+  "synced_at": "2026-07-27",
+  "elements": [
+    { "id": "eb8f2d6e-c0de-4fe1-b8bc-bb81e6ed64e4", "name": "Plur Shot-1", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/1b0fd0c7-fc7d-4477-925b-7ce8f02c7072.jpg" },
+    { "id": "cb9944ae-9898-43a2-9c86-0645435ddd82", "name": "Wizard", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/d9b59cd8-b94c-4767-a1e4-3363806a951f.jpg" },
+    { "id": "d36ea35a-e335-447e-a03f-db9f3983ea54", "name": "Dan-1", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/8712d154-5260-4420-ab4c-d93d62de529f.png" },
+    { "id": "fbe6fa51-76e1-493b-a11b-145e2ccbd3be", "name": "dan", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/9f808621-d913-4036-ab7c-3d1c9dc788c6.png" },
+    { "id": "3d1d2749-acae-4b36-b1e7-0a674fc58df9", "name": "Corporate-Comedian's-Dilemma-1", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/1d3e85b7-6d30-41f2-9776-630a2b4bc28f.png" },
+    { "id": "9f5cfe11-7b8f-49fd-8326-d5b0cbb13d9b", "name": "Corporate-Comedian's-Dilemma", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/6b04dbcc-7d20-4f6e-a17b-fd2368585089.png" },
+    { "id": "08f6fd74-e635-4390-9a01-fb18a62bb4c6", "name": "Casual-Contemplation-Artist", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/42e87a18-3e9e-4414-9f10-ea71cc82db44.png" },
+    { "id": "9451f335-19f7-4660-aff4-61667ef2f8ec", "name": "toilet-face", "category": "character", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/1fce8db8-a43a-406d-b4c1-789525823b58.png" },
+    { "id": "9593113b-5f9c-4f40-b820-d41a9623a5e2", "name": "nodes", "category": "environment", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/5bde79b2-6fba-4531-b6e5-4ad32139a8b6.png" },
+    { "id": "e5822381-acad-4424-85c6-396b68832955", "name": "toilet", "category": "environment", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/5ebf21bf-0f75-4864-91e4-a7cc23ad6732.png" }
+  ],
+  "souls": [
+    { "id": "df627881-ef26-4d1b-bd6c-9836845bf590", "name": "Wizard", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/05f1c49e-f503-4259-8ebd-52f823cd15a8.png" },
+    { "id": "551b604d-b1fa-4650-bb92-65150ab06b89", "name": "Todd", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/6b04dbcc-7d20-4f6e-a17b-fd2368585089.png" },
+    { "id": "9369846c-b8c4-497d-89ba-e5635b9de747", "name": "Corporate Comedian's Dilemma", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/61d17c32-8416-4480-b6d7-3a6f1c34c0ba.png" },
+    { "id": "bd25dae0-5265-48fe-9b97-12cf98d574f1", "name": "Dan", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/8712d154-5260-4420-ab4c-d93d62de529f.png" },
+    { "id": "34bd2b8d-e473-49ec-8d33-f0c3a068c58b", "name": "Casual Contemplation Artist", "thumb": "https://d2ol7oe51mr4n9.cloudfront.net/user_3AdpNjoJy5JzjJ3fzuvO1t8vPBi/1222fa04-5b8e-493b-93cf-ed12a30cd253.png" }
+  ]
+}

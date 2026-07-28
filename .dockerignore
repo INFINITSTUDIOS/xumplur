@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.git/
+.DS_Store
+run.log
+projects/*/exports/
+projects/*/assets/_history/

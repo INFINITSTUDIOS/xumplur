@@ -1,0 +1,24 @@
+{
+  "_note": "Higgsfield Cloud (platform.higgsfield.ai). submit(application=MODEL_ID_PATH, arguments={flat body}). Auth: HF_KEY='key:secret'. Reference image passed as image_url (string). Result: {'video':{'url':...}}. Model IDs are the URL paths from cloud.higgsfield.ai/explore. image_to_video below is confirmed from official docs; text_to_video + audio model IDs must be confirmed in the gallery.",
+  "video": {
+    "image_to_video_model_id": "bytedance/seedance/v1/pro/image-to-video",
+    "text_to_video_model_id": "bytedance/seedance/v1/pro/text-to-video",
+    "params": {
+      "duration": 5
+    },
+    "prompt_arg": "prompt",
+    "image_arg": "image_url",
+    "images_arg": "input_images",
+    "soul_ref_template": "<<<{id}>>>",
+    "audio_directive": "Audio: realistic diegetic sound effects only (liquid splashes, subtle whooshes, soft ambient room tone) — absolutely no music, no soundtrack, no melody, no score.",
+    "output_key": "video"
+  },
+  "audio": {
+    "_note": "The Higgsfield cloud REST API exposes no plain text-to-speech model (only higgsfield-ai/speak, a talking-avatar that needs an image). Voiceovers are generated via the Higgsfield MCP (Claude), not the standalone engine. If a TTS model appears in cloud.higgsfield.ai/explore, put its slug in model_id to enable standalone VO.",
+    "model_id": "CONFIRM_no-cloud-tts",
+    "text_arg": "prompt",
+    "voice_id": "dc382508-c8bd-443c-8cb2-46e57b8d2e6f",
+    "voice_type": "preset",
+    "output_key": "audio"
+  }
+}

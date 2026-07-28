@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PLÜR — Scene Dashboard</title>
+<style>
+  :root{
+    --bg:#0a0608; --panel:#160e13; --panel2:#1e131b; --line:#3a2530;
+    --magenta:#ff2d9b; --cyan:#22d3ee; --gold:#d9c088; --cream:#f5efe6;
+    --muted:#b596a5; --red:#ff5a6a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:
+      radial-gradient(900px 500px at 80% -5%, rgba(255,45,155,.16), transparent 60%),
+      radial-gradient(700px 500px at 0% 20%, rgba(90,20,60,.35), transparent 60%),
+      var(--bg);
+    color:var(--cream); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:28px 20px 80px}
+  header.top{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:6px}
+  .brand{font-weight:800; font-size:40px; letter-spacing:.14em; text-transform:uppercase}
+  .brand .m{color:var(--magenta)}
+  .brand .c{color:var(--cyan)}
+  .eyebrow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; letter-spacing:.32em;
+    text-transform:uppercase; color:var(--muted)}
+  .sub{color:var(--muted); margin:2px 0 22px; max-width:720px}
+
+  .queuebar{background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line);
+    border-radius:14px; padding:14px 16px; margin-bottom:26px}
+  .queuebar h2{margin:0 0 8px; font-size:12px; letter-spacing:.28em; text-transform:uppercase; color:var(--gold);
+    font-family:ui-monospace,monospace}
+  .qitems{display:flex; flex-direction:column; gap:8px}
+  .qitem{display:flex; align-items:center; gap:10px; background:#0e0a0d; border:1px solid var(--line);
+    border-radius:10px; padding:8px 12px; font-size:13px}
+  .qitem .tag{font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.12em; padding:2px 8px; border-radius:20px;
+    text-transform:uppercase}
+  .tag.visual{background:rgba(255,45,155,.16); color:var(--magenta); border:1px solid rgba(255,45,155,.4)}
+  .tag.vo{background:rgba(34,211,238,.14); color:var(--cyan); border:1px solid rgba(34,211,238,.4)}
+  .qitem .grow{flex:1; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .qempty{color:var(--muted); font-size:13px; font-style:italic}
+  .row-actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap}
+  .statuspill{font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.06em; margin-bottom:10px;
+    color:var(--muted)}
+  .statuspill .ok{color:var(--cyan)} .statuspill .bad{color:var(--red)} .statuspill .go{color:var(--magenta)}
+  .runlog{margin-top:12px; background:#050305; border:1px solid var(--line); border-radius:10px; padding:12px;
+    font:12px/1.5 ui-monospace,monospace; color:#cfc0c8; max-height:240px; overflow:auto; white-space:pre-wrap}
+  button:disabled{opacity:.4; cursor:not-allowed}
+  select{background:#0c070a; color:var(--cream); border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; font:14px inherit; min-width:260px; cursor:pointer}
+  select:focus{outline:none; border-color:var(--magenta)}
+  .hint{font-size:11px; color:var(--muted); margin-top:6px; max-width:320px; line-height:1.4}
+  optgroup{color:var(--gold)}
+
+  .card{display:grid; grid-template-columns:340px 1fr; gap:22px; background:linear-gradient(180deg,var(--panel),#0d0810);
+    border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:22px}
+  @media(max-width:820px){.card{grid-template-columns:1fr}}
+  .media .num{font-size:12px; font-family:ui-monospace,monospace; letter-spacing:.2em; color:var(--muted)}
+  .media h3{margin:2px 0 10px; font-size:22px; letter-spacing:.04em; text-transform:uppercase; font-weight:800}
+  .shothead{display:flex; align-items:center; gap:10px}
+  .shothead h3{margin:2px 0 8px; flex:1; min-width:0}
+  .nextbtn{flex:none; width:34px; height:34px; margin-bottom:6px; border-radius:8px; border:1px solid var(--line);
+    background:#0e0a0d; color:var(--cream); font-size:16px; line-height:1; cursor:pointer}
+  .nextbtn:hover{border-color:var(--cyan); color:var(--cyan)}
+  .badges{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+  .badge{font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    padding:3px 9px; border-radius:20px; border:1px solid var(--line); color:var(--muted)}
+  .badge.prod{color:var(--gold); border-color:rgba(217,192,136,.5)}
+  video{width:100%; border-radius:12px; background:#000; display:block; border:1px solid var(--line)}
+  .vidwrap{position:relative}
+  .newbadge{position:absolute; top:8px; right:8px; z-index:5; background:var(--gold); color:#1a0010;
+    font:800 10px/1 ui-monospace,monospace; letter-spacing:.14em; padding:4px 8px; border-radius:20px;
+    box-shadow:0 2px 10px rgba(0,0,0,.5); animation:newpulse 1.6s ease-in-out infinite}
+  @keyframes newpulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .story{font-size:13px; color:var(--muted); margin:12px 0 0; border-left:2px solid var(--magenta); padding-left:12px}
+  .verrow{display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; font-size:12px}
+  .verrow label{margin:0; font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold)}
+  .verrow select{min-width:160px; padding:6px 10px; font-size:12px}
+  .verrow .hint{margin:0}
+
+  .edit label{display:block; font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+  .edit .field{margin-bottom:16px}
+  textarea{width:100%; background:#0c070a; color:var(--cream); border:1px solid var(--line); border-radius:10px;
+    padding:11px 12px; font:13px/1.5 inherit; resize:vertical; min-height:74px}
+  textarea:focus{outline:none; border-color:var(--magenta)}
+  textarea.vo{min-height:52px}
+  input.soulinput{width:100%; background:#0c070a; color:var(--cream); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; font:13px ui-monospace,monospace; margin-top:8px}
+  input.soulinput:focus{outline:none; border-color:var(--magenta)}
+  .soulrow{display:flex; gap:10px; align-items:center}
+  .soulpick{min-width:0; flex:1}
+  .soulthumb{width:44px; height:44px; object-fit:cover; border-radius:8px; border:1px solid var(--line)}
+  .split{border-top:1px dashed var(--line); margin:6px 0 16px}
+
+  .refrow{display:flex; gap:12px; align-items:center; margin-bottom:10px}
+  .refthumb{width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--line); background:#000}
+  .refnone{width:64px; height:64px; border-radius:8px; border:1px dashed var(--line); display:flex; align-items:center;
+    justify-content:center; color:var(--muted); font-size:10px; text-align:center; font-family:ui-monospace,monospace}
+  .filepick{font-size:12px; color:var(--muted)}
+  .previews{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .previews .refthumb{width:48px; height:48px}
+  input[type=file]{font-size:12px; color:var(--muted); max-width:100%}
+
+  button{font:inherit; cursor:pointer; border-radius:10px; padding:9px 16px; font-weight:700; font-size:13px;
+    letter-spacing:.04em; border:1px solid transparent; transition:.15s}
+  .btn-magenta{background:var(--magenta); color:#1a0010}
+  .btn-magenta:hover{filter:brightness(1.12)}
+  .btn-cyan{background:var(--cyan); color:#04141a}
+  .btn-cyan:hover{filter:brightness(1.12)}
+  .btn-ghost{background:transparent; border-color:var(--line); color:var(--muted)}
+  .btn-ghost:hover{border-color:var(--muted); color:var(--cream)}
+  .btn-sm{padding:5px 10px; font-size:11px}
+  .btn-danger{background:transparent; border-color:rgba(255,90,106,.5); color:var(--red)}
+  .btn-danger:hover{background:var(--red); color:#1a0006; border-color:var(--red)}
+  audio{width:100%; margin-top:8px; filter:saturate(.5)}
+  .vowave{position:relative; height:54px; background:#0c070a; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:8px; cursor:pointer}
+  .vowave canvas{display:block; width:100%; height:54px}
+  .playhead{position:absolute; top:0; left:0; width:2px; height:54px; background:var(--cream); box-shadow:0 0 6px var(--cyan); opacity:0; pointer-events:none}
+  .voplay{position:absolute; left:8px; top:50%; transform:translateY(-50%); z-index:3; width:36px; height:36px;
+    border-radius:50%; background:var(--magenta); color:#1a0010; border:none; font-size:13px; cursor:pointer; padding:0;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 4px rgba(10,6,8,.55)}
+  .voplay:hover{filter:brightness(1.12)}
+  .voicerow{display:flex; align-items:center; gap:10px; margin-top:10px}
+  .voicerow label{margin:0}
+  .voicepick{min-width:180px; flex:0 1 auto; padding:8px 10px; font-size:13px}
+  .dlbtn{display:inline-flex; align-items:center; gap:4px; text-decoration:none; border:1px solid var(--line);
+    color:var(--muted); border-radius:10px; padding:8px 12px; font-size:12px; font-weight:700; letter-spacing:.03em}
+  .dlbtn:hover{border-color:var(--cyan); color:var(--cyan)}
+  .flash{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#160e13; color:var(--cream);
+    border:1px solid var(--magenta); border-radius:10px; padding:12px 20px; font-size:13px; box-shadow:0 8px 40px rgba(0,0,0,.6);
+    opacity:0; pointer-events:none; transition:opacity .25s; z-index:200}
+  .flash.show{opacity:1}
+  .foot{color:var(--muted); font-size:12px; text-align:center; margin-top:30px; line-height:1.7}
+  code{background:#0c070a; border:1px solid var(--line); padding:1px 6px; border-radius:5px; color:var(--gold)}
+
+  /* project tabs */
+  .tabs{display:flex; gap:8px; flex-wrap:wrap; margin:16px 0 12px}
+  .tab{padding:9px 16px; border:1px solid var(--line); border-radius:10px; background:#0e0a0d;
+    color:var(--muted); cursor:pointer; font-size:13px; font-weight:700; letter-spacing:.03em}
+  .tab.active{background:linear-gradient(180deg,var(--magenta),#c31d78); color:#1a0010; border-color:var(--magenta)}
+  .tab.add{color:var(--cyan); border-style:dashed}
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; margin:0 0 22px; align-items:center}
+  .jumpnav{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 22px}
+  .jumplabel{font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-right:4px}
+  .jumpbtn{min-width:32px; height:32px; padding:0 8px; border-radius:8px; border:1px solid var(--line); background:#0e0a0d;
+    color:var(--cream); font-weight:700; font-size:13px; cursor:pointer}
+  .jumpbtn:hover{border-color:var(--magenta); color:var(--magenta)}
+  /* add-clip form */
+  .addclip{background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line);
+    border-radius:14px; padding:16px; margin-bottom:22px}
+  .addclip h2{margin:0 0 12px; font-size:12px; letter-spacing:.28em; text-transform:uppercase; color:var(--gold);
+    font-family:ui-monospace,monospace}
+  .addclip label{display:block; font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+  .addclip .field{margin-bottom:12px}
+  .addclip input[type=text]{width:100%; background:#0c070a; color:var(--cream); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; font:13px inherit}
+  .addclip input[type=text]:focus{outline:none; border-color:var(--magenta)}
+  .savedrow{display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); align-items:flex-start; flex-wrap:wrap}
+  .savedvid{width:120px; border-radius:8px; border:1px solid var(--line); background:#000}
+  .savedaud{width:240px}
+  .savedmeta{flex:1; min-width:220px; display:flex; flex-direction:column; gap:6px}
+  .savedactions{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:4px}
+  .trimclip{padding:18px 0; border-bottom:1px solid var(--line)}
+  .trimclip .tt{font-size:13px; letter-spacing:.02em; margin-bottom:6px; display:flex; align-items:center; gap:12px}
+  .trimclip .tt video{width:120px; border-radius:8px; border:1px solid var(--line); background:#000}
+  .lane-label{font:10px ui-monospace,monospace; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin:14px 0 6px}
+  .dualrange{position:relative; height:46px}
+  .videolane{background-size:100% 100%; background-position:center; background-repeat:no-repeat;
+    background-color:#0c070a; border:1px solid var(--line); border-radius:8px}
+  .audiolane{background:#0c070a; border:1px solid var(--line); border-radius:8px}
+  .dualrange .wave{position:absolute; top:0; left:0; width:100%; height:44px; display:block; border-radius:8px}
+  .dualrange .fill{position:absolute; top:0; height:44px; background:rgba(255,45,155,.14);
+    border-left:2px solid var(--magenta); border-right:2px solid var(--magenta); pointer-events:none}
+  .dualrange input[type=range]{position:absolute; top:0; left:0; width:100%; height:44px; margin:0;
+    -webkit-appearance:none; appearance:none; background:transparent; pointer-events:none}
+  .dualrange input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; pointer-events:auto;
+    width:12px; height:44px; border-radius:4px; background:rgba(245,239,230,.92); border:2px solid var(--magenta); cursor:ew-resize}
+  .dualrange input[type=range]::-moz-range-thumb{pointer-events:auto;
+    width:12px; height:44px; border-radius:4px; background:rgba(245,239,230,.92); border:2px solid var(--magenta); cursor:ew-resize}
+  .dualrange input.voinput::-webkit-slider-thumb{border-color:var(--cyan); background:rgba(34,211,238,.85)}
+  .dualrange input.voinput::-moz-range-thumb{border-color:var(--cyan); background:rgba(34,211,238,.85)}
+  .trimreadout{display:flex; align-items:center; gap:14px; margin-top:10px; font:12px ui-monospace,monospace; color:var(--muted); flex-wrap:wrap}
+  /* play-all overlay */
+  .player{position:fixed; inset:0; background:rgba(5,3,5,.94); z-index:100; display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px}
+  .player.show{display:flex}
+  .player video{width:auto; height:76vh; max-width:100%; border-radius:12px; border:1px solid var(--line)}
+  .player .plabel{color:var(--cream); font:14px ui-monospace,monospace; letter-spacing:.08em}
+  .player .pctrl{display:flex; gap:12px}
+  .player .pclose{position:absolute; top:22px; right:26px}
+  .player .pvol{display:flex; gap:26px; flex-wrap:wrap; color:var(--cream); font:12px ui-monospace,monospace}
+  .player .pvol label{display:flex; align-items:center; gap:8px; letter-spacing:.04em}
+  .player .pvol input[type=range]{accent-color:var(--magenta); width:150px}
+  .player .pvol span{color:var(--muted); min-width:34px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">PL<span class="m">Ü</span>R <span class="c">·</span> SCENE DASHBOARD</div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="eyebrow" id="eyebrow">—</div>
+  <div class="toolbar">
+    <button class="btn-cyan" onclick="playAll()">▶ Play all (film)</button>
+    <button class="btn-magenta btn-sm" id="dlfilm" onclick="renderFilm()">⬇ Download film</button>
+    <button class="btn-ghost btn-sm" onclick="toggleTrim()">✂️ Trim clips</button>
+    <button class="btn-ghost btn-sm" onclick="toggleSaved()">🗂 Saved clips</button>
+    <button class="btn-ghost btn-sm" id="addClipToggle" onclick="toggleAddClip()">➕ Add clip</button>
+  </div>
+
+  <div class="jumpnav" id="jumpnav"></div>
+
+  <div class="addclip" id="savedpanel" style="display:none">
+    <h2>Saved clips — reusable versions</h2>
+    <div class="hint" style="margin-bottom:12px">Save a video or voiceover before regenerating, then restore it here if you prefer the earlier take.</div>
+    <div id="savedrows"></div>
+  </div>
+
+  <div class="addclip" id="trimpanel" style="display:none">
+    <h2>Trim clips — in / out points used by ▶ Play all</h2>
+    <div id="trimrows"></div>
+    <div class="hint" style="margin-top:10px">Set End to the full length to use the whole clip. Trims apply to the master “Play all” playback and are saved per project.</div>
+  </div>
+
+  <div class="addclip" id="addclip" style="display:none">
+    <h2>Add a new clip to this project</h2>
+    <div class="field"><label>Title</label><input type="text" id="ac-title" placeholder="e.g. Closing tag"></div>
+    <div class="field"><label>Visual prompt (required)</label><textarea id="ac-prompt" placeholder="Describe the shot…"></textarea></div>
+    <div class="field"><label>Character reference (optional)</label>
+      <select class="soulpick" id="ac-soulpick" onchange="acPickSoul()"></select>
+      <input type="text" class="soulinput" id="ac-soul" placeholder="…or paste an Element / Soul ID">
+    </div>
+    <div class="field"><label>Voiceover line (optional)</label><textarea class="vo" id="ac-vo" placeholder="Narration for this shot…"></textarea></div>
+    <button class="btn-magenta" onclick="addClip()">Queue new clip ⟲</button>
+  </div>
+
+  <div class="queuebar">
+    <h2>Pending re-submission queue</h2>
+    <div class="statuspill" id="statuspill">checking engine…</div>
+    <div class="qitems" id="qitems"><div class="qempty">Nothing queued yet.</div></div>
+    <div class="row-actions">
+      <button class="btn-magenta btn-sm" id="runbtn" onclick="runQueue()">⚡ Generate all pending</button>
+      <button class="btn-ghost btn-sm" onclick="loadQueue()">Refresh</button>
+      <button class="btn-cyan btn-sm" onclick="copyForClaude()">Copy queue for Claude</button>
+      <button class="btn-ghost btn-sm" onclick="checkApiWallet()">Check API wallet</button>
+    </div>
+    <div class="hint" id="apiwallet" style="margin-top:8px">API wallet (Cloud API credits — separate from your Team Plan): <a href="https://cloud.higgsfield.ai" target="_blank" style="color:var(--cyan)">manage ↗</a></div>
+    <pre class="runlog" id="runlog" style="display:none"></pre>
+  </div>
+
+  <div class="queuebar" style="display:flex; flex-wrap:wrap; gap:22px; align-items:flex-end">
+    <div>
+      <h2>Video model</h2>
+      <select id="videoModel" onchange="setVideoModel()"></select>
+      <div class="hint" id="videoHint"></div>
+    </div>
+    <div>
+      <h2>Voiceover voice</h2>
+      <select id="voice" onchange="setVoice()"></select>
+      <div class="hint">Default voice for shots that don't have their own voice set below.</div>
+    </div>
+  </div>
+
+  <div id="scenes"></div>
+
+  <div class="foot">
+    Local multi-project dashboard · <code>python3 app.py</code> · projects in <code>plur-dashboard/projects/</code><br>
+    Older renders are archived per project in <code>assets/_history/</code>.
+  </div>
+</div>
+
+<div class="player" id="player">
+  <div class="plabel" id="playerLabel">—</div>
+  <video id="playerVideo" playsinline></video>
+  <audio id="playerAudio"></audio>
+  <div class="pvol">
+    <label>🎬 Video <input type="range" min="0" max="1" step="0.05" value="0.25" id="volVideo" oninput="setVol()"><span id="volVideoVal">25%</span></label>
+    <label>🎙 Voiceover <input type="range" min="0" max="1" step="0.05" value="1" id="volVoice" oninput="setVol()"><span id="volVoiceVal">100%</span></label>
+  </div>
+  <div class="pctrl">
+    <button class="btn-ghost btn-sm" onclick="playAllPrev()">⏮ Prev</button>
+    <button class="btn-cyan btn-sm" id="playerPause" onclick="playAllToggle()">⏸ Pause</button>
+    <button class="btn-ghost btn-sm" onclick="playAllNext()">Next ⏭</button>
+  </div>
+  <button class="btn-magenta btn-sm pclose" onclick="closePlayer()">✕ Close</button>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+let currentProject = null;
+let SCENES = [];
+let SAVED = [];
+let CHARACTERS = {elements:[], souls:[]};
+let CATALOG = null;
+const uploads = {};        // scene -> [{dataUrl, name}]
+let _cb = Date.now();      // cache-bust token per scenes load
+
+function flash(msg){
+  const f = document.getElementById('flash');
+  f.textContent = msg; f.classList.add('show');
+  clearTimeout(f._t); f._t = setTimeout(()=>f.classList.remove('show'), 2600);
+}
+const P = u => u + (u.includes('?')?'&':'?') + 'project=' + encodeURIComponent(currentProject);
+function assetUrl(path){ return path ? `projects/${currentProject}/${path}?t=${_cb}` : ''; }
+async function postJSON(url, body){
+  body = Object.assign({project: currentProject}, body||{});
+  return (await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})).json();
+}
+
+/* ---------- projects / tabs ---------- */
+async function loadProjects(){
+  const ps = await (await fetch('/api/projects')).json();
+  if(!currentProject || !ps.some(p=>p.id===currentProject)) currentProject = ps[0] ? ps[0].id : null;
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  for(const p of ps){
+    const t = document.createElement('div');
+    t.className = 'tab' + (p.id===currentProject ? ' active' : '');
+    t.textContent = p.name;
+    t.onclick = () => selectProject(p.id);
+    tabs.appendChild(t);
+  }
+  const add = document.createElement('div');
+  add.className = 'tab add'; add.textContent = '＋ New project';
+  add.onclick = newProject;
+  tabs.appendChild(add);
+}
+
+function selectProject(id){
+  currentProject = id;
+  loadProjects();
+  loadProjectData();
+}
+
+async function newProject(){
+  const name = prompt('New project name:');
+  if(!name) return;
+  const r = await postJSON('/api/new-project', {name});
+  if(r.ok){ currentProject = r.id; await loadProjects(); loadProjectData(); flash('Project created'); }
+  else flash('Error: '+(r.error||'?'));
+}
+
+function loadProjectData(){
+  loadScenes(); loadQueue(); loadStatus();
+}
+
+async function renderFilm(){
+  const vv = document.getElementById('volVideo') ? document.getElementById('volVideo').value : 0.25;
+  const av = document.getElementById('volVoice') ? document.getElementById('volVoice').value : 1;
+  const btn = document.getElementById('dlfilm');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Rendering…';
+  flash('Rendering film with your trims, VO offsets & volumes — can take a minute…');
+  try{
+    const r = await (await fetch(P('/api/render-film') + `&vidvol=${vv}&vovol=${av}`)).json();
+    if(r.url){
+      flash(`Film ready (${r.scenes} shots) — downloading`);
+      const a = document.createElement('a');
+      a.href = r.url + '?t=' + Date.now(); a.download = `${currentProject}-film.mp4`;
+      document.body.appendChild(a); a.click(); a.remove();
+    } else flash('Render error: ' + (r.error||'?'));
+  }catch(e){ flash('Render failed — see server logs'); }
+  btn.disabled = false; btn.textContent = label;
+}
+
+/* ---------- scenes ---------- */
+async function loadScenes(){
+  _cb = Date.now();
+  const [scRes, svRes] = await Promise.all([fetch(P('/api/scenes')), fetch(P('/api/saved'))]);
+  SCENES = await scRes.json();
+  SAVED = await svRes.json();
+  const wrap = document.getElementById('scenes');
+  wrap.innerHTML = '';
+  const proj = (SCENES[0] && SCENES.length) ? '' : '';
+  document.getElementById('eyebrow').textContent =
+    `${SCENES.length} shot${SCENES.length!==1?'s':''} · 9:16 · edit, re-submit, or play the whole film`;
+  if(!SCENES.length){
+    wrap.innerHTML = '<div class="qempty" style="padding:20px">No clips yet — use “➕ Add clip” to create one.</div>';
+    return;
+  }
+  for(const s of SCENES){
+    const prod = s.type === 'product';
+    const refBlock = `
+      <div class="field">
+        <label>Reference images ${prod ? '' : '(optional — turns this into image-to-video)'} · multiple allowed</label>
+        <div class="refrow">
+          ${s.ref_image
+            ? `<img class="refthumb" src="${assetUrl(s.ref_image)}" alt="ref">`
+            : `<div class="refnone">no ref</div>`}
+          <div class="filepick">
+            <input type="file" accept="image/*" multiple id="file-${s.id}" onchange="pickFile(${s.id})">
+            <div id="filename-${s.id}" style="margin-top:6px"></div>
+            <div id="previews-${s.id}" class="previews"></div>
+          </div>
+        </div>
+      </div>`;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'card-' + s.id;
+    card.innerHTML = `
+      <div class="media">
+        <div class="num">SHOT ${String(s.id).padStart(2,'0')} · ${s.duration||8}s</div>
+        <div class="shothead">
+          <h3>${s.title||('Shot '+s.id)}</h3>
+          <button class="nextbtn" onclick="jumpToNext(${s.id})" title="Jump to next shot">→</button>
+        </div>
+        <div class="badges">
+          <span class="badge ${prod?'prod':''}">${prod?'Real product':'Motion graphic'}</span>
+          ${s.camera?`<span class="badge">${s.camera}</span>`:''}
+          <span class="badge">9:16</span>
+        </div>
+        <div class="vidwrap">
+          <video id="vid-${s.id}" controls preload="metadata" poster="${assetUrl(s.thumb)}" src="${assetUrl(s.video)}"></video>
+          <span class="newbadge" id="vidnew-${s.id}" style="display:none">✦ NEW</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+          <button class="btn-cyan btn-sm playboth" id="play-${s.id}" onclick="playScene(${s.id})">▶ Play shot + voiceover</button>
+          <a class="dlbtn" href="${assetUrl(s.video)}" download="shot${s.id}.mp4" title="Download this clip (.mp4)">⬇ Video</a>
+          <button class="btn-ghost btn-sm" onclick="saveVersion(${s.id},'video')" title="Save the current video as a draft">💾 Save as Draft</button>
+          <button class="btn-danger btn-sm" onclick="deleteScene(${s.id})">🗑 Delete clip</button>
+        </div>
+        ${draftSwitcher(s.id,'video')}
+        ${s.storyboard?`<p class="story">${s.storyboard}</p>`:''}
+      </div>
+      <div class="edit">
+        <div class="field">
+          <label>Visual prompt</label>
+          <textarea id="prompt-${s.id}">${s.visual_prompt||''}</textarea>
+        </div>
+        <div class="field">
+          <label>Character reference (optional) — embedded in the prompt as &lt;&lt;&lt;id&gt;&gt;&gt;</label>
+          <div class="soulrow">
+            <select class="soulpick" id="soulpick-${s.id}" onchange="pickSoul(${s.id})">${soulOptions(s.soul_id)}</select>
+            <img class="soulthumb" id="soulthumb-${s.id}" style="display:${s.soul_id ? 'block' : 'none'}" src="${soulThumb(s.soul_id) || ''}">
+          </div>
+          <input type="text" class="soulinput" id="soul-${s.id}" placeholder="…or paste any Higgsfield Soul / Element ID" value="${s.soul_id || ''}">
+        </div>
+        ${refBlock}
+        <div class="field" style="max-width:200px">
+          <label>Shot length (to generate)</label>
+          <select id="dur-${s.id}">${durationOptions(s.duration||8)}</select>
+        </div>
+        <button class="btn-magenta" onclick="resubmit(${s.id},'visual')">Re-submit visual ⟲</button>
+        <div class="split"></div>
+        <div class="field">
+          <label>Voiceover</label>
+          <div class="vowave" id="vowrap-${s.id}" onclick="voSeek(event,${s.id})" title="Click the waveform to scrub">
+            <span class="newbadge" id="vonew-${s.id}" style="display:none">✦ NEW</span>
+            <button class="voplay" id="voplay-${s.id}" onclick="voToggle(event,${s.id})">▶</button>
+            <canvas id="mwave-${s.id}"></canvas>
+            <div class="playhead" id="ph-${s.id}"></div>
+            <audio id="aud-${s.id}" preload="none" src="${assetUrl(s.vo_audio)}"></audio>
+          </div>
+          <textarea class="vo" id="vo-${s.id}" style="margin-top:10px">${s.vo_text||''}</textarea>
+          <div class="voicerow">
+            <label>Voice for this shot</label>
+            <select class="voicepick" id="voicepick-${s.id}">${voiceOptions(s.voice_id)}</select>
+            <a class="dlbtn" href="${assetUrl(s.vo_audio)}" download="${voiceNameFor(s.voice_id)}-shot${s.id}-voiceover.wav" title="Download voiceover .wav">⬇ Audio</a>
+            <button class="btn-ghost btn-sm" onclick="saveVersion(${s.id},'audio')" title="Save the current voiceover as a draft">💾 Save as Draft</button>
+          </div>
+          ${draftSwitcher(s.id,'audio')}
+        </div>
+        <button class="btn-cyan" onclick="resubmit(${s.id},'vo')">Re-submit voiceover ⟲</button>
+      </div>`;
+    wrap.appendChild(card);
+  }
+  for(const s of SCENES){
+    drawMainWave(s.id, assetUrl(s.vo_audio));
+    wireVoWave(s.id);
+    const v = document.getElementById('vid-'+s.id);
+    if(v) v.addEventListener('play', () => markSeen(s.id, 'video'));
+  }
+  refreshNewBadges();
+  buildJumpNav();
+}
+
+function buildJumpNav(){
+  const jn = document.getElementById('jumpnav');
+  if(!jn) return;
+  if(!SCENES.length){ jn.innerHTML = ''; return; }
+  jn.innerHTML = `<span class="jumplabel">Jump to Scene:</span>` +
+    SCENES.map((s, i) => `<button class="jumpbtn" onclick="jumpToScene(${s.id})" title="${(s.title||('Shot '+s.id)).replace(/"/g,'&quot;')}">${i+1}</button>`).join('');
+}
+function jumpToScene(id){
+  const el = document.getElementById('card-'+id);
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function jumpToNext(id){
+  const idx = SCENES.findIndex(s => s.id === id);
+  if(idx < 0 || !SCENES.length) return;
+  const next = SCENES[(idx + 1) % SCENES.length];   // wrap to first after the last
+  jumpToScene(next.id);
+}
+function durationOptions(cur){
+  cur = parseInt(cur) || 8;
+  const opts = [5,6,8,10,12,15];
+  if(!opts.includes(cur)) opts.push(cur);
+  opts.sort((a,b)=>a-b);
+  return opts.map(d => `<option value="${d}" ${d===cur?'selected':''}>${d}s</option>`).join('');
+}
+
+/* ---------- "NEW" markers for freshly generated assets ---------- */
+function seenKey(id, kind){ return `seen:${currentProject}:${id}:${kind}`; }
+function markSeen(id, kind){
+  const s = SCENES.find(x=>x.id===id); if(!s) return;
+  const rev = (kind==='video') ? s.video_rev : s.vo_rev;
+  if(rev == null) return;
+  try{ localStorage.setItem(seenKey(id,kind), String(rev)); }catch(_){}
+  const b = document.getElementById((kind==='video'?'vidnew-':'vonew-')+id);
+  if(b) b.style.display = 'none';
+}
+function refreshNewBadges(){
+  for(const s of SCENES){
+    let vseen=null, aseen=null;
+    try{ vseen = localStorage.getItem(seenKey(s.id,'video')); aseen = localStorage.getItem(seenKey(s.id,'vo')); }catch(_){}
+    const vb = document.getElementById('vidnew-'+s.id);
+    if(vb) vb.style.display = (s.video_rev!=null && vseen!==String(s.video_rev)) ? 'block' : 'none';
+    const ab = document.getElementById('vonew-'+s.id);
+    if(ab) ab.style.display = (s.vo_rev!=null && aseen!==String(s.vo_rev)) ? 'block' : 'none';
+  }
+}
+
+async function drawWaveformTo(canvas, url, color){
+  if(!canvas) return;
+  try{
+    const buf = await (await fetch(url)).arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    const audio = await ac.decodeAudioData(buf);
+    const data = audio.getChannelData(0);
+    const W = canvas.clientWidth || 600, H = canvas.clientHeight || 46;
+    canvas.width = W; canvas.height = H;
+    const g = canvas.getContext('2d');
+    g.clearRect(0,0,W,H);
+    g.fillStyle = color || '#22d3ee';
+    const step = Math.max(1, Math.floor(data.length / W));
+    for(let x=0; x<W; x++){
+      let mn=1, mx=-1;
+      for(let j=0;j<step;j++){ const d=data[x*step+j]; if(d<mn)mn=d; if(d>mx)mx=d; }
+      const y1=(1+mn)*H/2, y2=(1+mx)*H/2;
+      g.fillRect(x, y1, 1, Math.max(1, y2-y1));
+    }
+    ac.close();
+  }catch(e){ /* VO missing for a new clip — leave blank */ }
+}
+function drawMainWave(id, url){ drawWaveformTo(document.getElementById('mwave-'+id), url, '#22d3ee'); }
+function wireVoWave(id){
+  const a = document.getElementById('aud-'+id), ph = document.getElementById('ph-'+id);
+  if(!a || !ph) return;
+  const btn = () => document.getElementById('voplay-'+id);
+  const move = () => { if(a.duration){ ph.style.left = (a.currentTime/a.duration*100)+'%'; } };
+  a.addEventListener('play', () => { ph.style.opacity = 1; const b=btn(); if(b) b.textContent = '⏸'; markSeen(id,'vo'); });
+  a.addEventListener('timeupdate', move);
+  a.addEventListener('seeked', move);
+  a.addEventListener('pause', () => { const b=btn(); if(b) b.textContent = '▶'; });
+  a.addEventListener('ended', () => { ph.style.left = '0%'; ph.style.opacity = 0; const b=btn(); if(b) b.textContent = '▶'; });
+}
+function voToggle(e, id){
+  if(e) e.stopPropagation();
+  const a = document.getElementById('aud-'+id);
+  const b = document.getElementById('voplay-'+id);
+  if(a.paused){
+    document.querySelectorAll('audio').forEach(x => { if(x!==a) x.pause(); });
+    a.play().catch(()=>{});
+    if(b) b.textContent = '⏸';
+  } else { a.pause(); if(b) b.textContent = '▶'; }
+}
+function voSeek(e, id){
+  const wrap = document.getElementById('vowrap-'+id);
+  const a = document.getElementById('aud-'+id);
+  const rect = wrap.getBoundingClientRect();
+  const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  const apply = () => { if(a.duration){ a.currentTime = frac * a.duration; if(a.paused) a.play().catch(()=>{}); } };
+  if(a.readyState >= 1) apply();
+  else { a.load(); a.addEventListener('loadedmetadata', apply, {once:true}); }
+}
+
+/* ---------- characters ---------- */
+async function loadCharacters(){
+  try{ CHARACTERS = await (await fetch('/characters.json?t='+Date.now())).json(); }
+  catch(_){ CHARACTERS = {elements:[], souls:[]}; }
+}
+function soulOptions(selectedId){
+  const opt = (c, group) => `<option value="${c.id}" data-thumb="${c.thumb||''}" ${c.id===selectedId?'selected':''}>${group} · ${c.name}</option>`;
+  let html = `<option value="">— pick from my characters —</option>`;
+  if((CHARACTERS.elements||[]).length){
+    html += `<optgroup label="Elements — work in video (Kling/Seedance)">`;
+    html += CHARACTERS.elements.map(c=>opt(c, c.category==='environment'?'Env':'Char')).join('');
+    html += `</optgroup>`;
+  }
+  if((CHARACTERS.souls||[]).length){
+    html += `<optgroup label="Souls — image models only">`;
+    html += CHARACTERS.souls.map(c=>opt(c,'Soul')).join('');
+    html += `</optgroup>`;
+  }
+  return html;
+}
+let GLOBAL_VOICE = null;
+function voiceNameFor(id){
+  const vid = id || GLOBAL_VOICE;
+  const v = (CATALOG && CATALOG.voices || []).find(x => x.voice_id === vid);
+  return (v ? v.name : 'voice').replace(/[^A-Za-z0-9]+/g, '-');
+}
+function voiceOptions(selectedId){
+  const sel = selectedId || GLOBAL_VOICE;
+  const cat = (CATALOG && CATALOG.voices) || [];
+  const mk = v => `<option value="${v.voice_id}" ${v.voice_id===sel?'selected':''}>${v.name}</option>`;
+  let h = '';
+  for(const g of ['male','female']){
+    h += `<optgroup label="${g[0].toUpperCase()+g.slice(1)}">` +
+         cat.filter(v=>v.gender===g).map(mk).join('') + `</optgroup>`;
+  }
+  return h;
+}
+
+function soulThumb(id){
+  if(!id) return '';
+  const all = [...(CHARACTERS.elements||[]), ...(CHARACTERS.souls||[])];
+  const c = all.find(x=>x.id===id);
+  return c ? c.thumb : '';
+}
+function pickSoul(id){
+  const sel = document.getElementById('soulpick-'+id);
+  document.getElementById('soul-'+id).value = sel.value;
+  const thumb = document.getElementById('soulthumb-'+id);
+  const src = sel.value ? (sel.selectedOptions[0].dataset.thumb || '') : '';
+  if(src){ thumb.src = src; thumb.style.display = 'block'; } else { thumb.style.display = 'none'; }
+}
+
+/* ---------- per-scene play (video + its VO) ---------- */
+function playScene(id){
+  const v = document.getElementById('vid-'+id);
+  const a = document.getElementById('aud-'+id);
+  const btn = document.getElementById('play-'+id);
+  const reset = () => { btn.textContent = '▶ Play shot + voiceover'; };
+  if(v && !v.paused){ v.pause(); if(a) a.pause(); reset(); return; }
+  document.querySelectorAll('video').forEach(x => { if(x!==v) x.pause(); });
+  document.querySelectorAll('audio').forEach(x => { if(x!==a) x.pause(); });
+  document.querySelectorAll('.playboth').forEach(b => { if(b!==btn) b.textContent = '▶ Play shot + voiceover'; });
+  try{ v.currentTime = 0; if(a) a.currentTime = 0; }catch(_){}
+  Promise.all([v.play(), a ? a.play() : Promise.resolve()]).catch(()=>{});
+  btn.textContent = '⏸ Stop';
+  v.onended = () => { if(a) a.pause(); reset(); };
+}
+
+/* ---------- play all (continuous film) ---------- */
+let playIndex = 0, playPaused = false, _playToken = 0;
+function playAll(){
+  if(!SCENES.length){ flash('No clips to play'); return; }
+  document.querySelectorAll('video,audio').forEach(x=>x.pause());
+  document.getElementById('player').classList.add('show');
+  playIndex = 0; playAllAt(0);
+}
+function playAllAt(i){
+  if(i < 0) i = 0;
+  if(i >= SCENES.length){ closePlayer(); return; }
+  playIndex = i;
+  const token = ++_playToken;               // invalidates stale clip handlers
+  const s = SCENES[i];
+  markSeen(s.id, 'video'); markSeen(s.id, 'vo');   // watching the film clears its NEW markers
+  const v = document.getElementById('playerVideo');
+  const a = document.getElementById('playerAudio');
+  document.getElementById('playerLabel').textContent =
+    `Shot ${i+1} / ${SCENES.length}  ·  ${s.title||('Shot '+s.id)}`;
+  const start = s.trim_start || 0;
+  const end = (s.trim_end == null ? null : s.trim_end);   // null = play to natural end
+  const voOffset = s.vo_offset || 0;                       // delay VO start within the clip
+  // media fragment (#t=start) makes the browser seek to the in-point on load — reliable across replays
+  v.src = assetUrl(s.video) + (start > 0 ? `#t=${start}` : '');
+  a.src = assetUrl(s.vo_audio);
+  applyVol();
+  let aStarted = false;
+  const go = () => {
+    if(token !== _playToken) return;
+    v.play().catch(()=>{});
+    if(voOffset <= 0){ a.play().catch(()=>{}); aStarted = true; }  // else starts once video reaches offset
+  };
+  v.onloadeddata = go;                       // fires after data at the fragment start is ready
+  v.ontimeupdate = () => {
+    if(token !== _playToken) return;
+    if(!aStarted && (v.currentTime - start) >= voOffset){ a.play().catch(()=>{}); aStarted = true; }
+    const stop = (end != null) ? end : v.duration;
+    if(stop && v.currentTime >= stop - 0.05){ v.ontimeupdate = null; playAllAt(i + 1); }
+  };
+  v.onended = () => { if(token === _playToken) playAllAt(i + 1); };
+  playPaused = false; document.getElementById('playerPause').textContent = '⏸ Pause';
+  v.load(); a.load();
+}
+function applyVol(){
+  const vv = +document.getElementById('volVideo').value;
+  const av = +document.getElementById('volVoice').value;
+  document.getElementById('playerVideo').volume = vv;
+  document.getElementById('playerAudio').volume = av;
+  document.getElementById('volVideoVal').textContent = Math.round(vv*100)+'%';
+  document.getElementById('volVoiceVal').textContent = Math.round(av*100)+'%';
+}
+function setVol(){ applyVol(); }
+function playAllNext(){ playAllAt(playIndex + 1); }
+function playAllPrev(){ playAllAt(playIndex - 1); }
+function playAllToggle(){
+  const v = document.getElementById('playerVideo');
+  const a = document.getElementById('playerAudio');
+  playPaused = !playPaused;
+  if(playPaused){ v.pause(); a.pause(); document.getElementById('playerPause').textContent = '▶ Resume'; }
+  else { v.play().catch(()=>{}); a.play().catch(()=>{}); document.getElementById('playerPause').textContent = '⏸ Pause'; }
+}
+function closePlayer(){
+  const v = document.getElementById('playerVideo');
+  const a = document.getElementById('playerAudio');
+  v.pause(); a.pause(); v.removeAttribute('src'); a.removeAttribute('src');
+  document.getElementById('player').classList.remove('show');
+}
+
+/* ---------- saved clips (reusable versions) ---------- */
+function toggleSaved(){
+  const el = document.getElementById('savedpanel');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if(el.style.display === 'block') buildSavedPanel();
+}
+async function saveVersion(id, kind){
+  const r = await postJSON('/api/save-version', {scene:id, kind});
+  if(r.ok){
+    flash(`Saved ${kind} draft for shot ${id}`);
+    loadScenes();   // re-render so the shot's Version switcher shows the new draft
+    if(document.getElementById('savedpanel').style.display !== 'none') buildSavedPanel();
+  } else flash('Error: '+(r.error||'?'));
+}
+
+/* per-shot version switcher: toggle preview between Current and saved drafts */
+function draftSwitcher(sid, kind){
+  const drafts = SAVED.filter(e => e.scene===sid && e.kind===kind);
+  if(!drafts.length) return '';
+  const opts = `<option value="">Current (live)</option>` +
+    drafts.map(e => `<option value="${e.id}" data-url="projects/${currentProject}/${e.file}?t=${_cb}">Draft · ${e.created}</option>`).join('');
+  return `<div class="verrow">
+    <label>${kind==='video'?'🎬':'🎙'} Version</label>
+    <select id="ver-${kind}-${sid}" onchange="switchVersion(${sid},'${kind}')">${opts}</select>
+    <button class="btn-cyan btn-sm" id="use-${kind}-${sid}" style="display:none" onclick="useVersion(${sid},'${kind}')">Use this ✓</button>
+    <span class="hint" id="vermsg-${kind}-${sid}"></span>
+  </div>`;
+}
+function switchVersion(sid, kind){
+  const sel = document.getElementById(`ver-${kind}-${sid}`);
+  const url = sel.selectedOptions[0].dataset.url;   // undefined for Current
+  const s = SCENES.find(x=>x.id===sid);
+  const useBtn = document.getElementById(`use-${kind}-${sid}`);
+  const msg = document.getElementById(`vermsg-${kind}-${sid}`);
+  if(kind==='video'){
+    const v = document.getElementById('vid-'+sid);
+    v.src = url || assetUrl(s.video); v.load();
+  } else {
+    const a = document.getElementById('aud-'+sid);
+    a.src = url || assetUrl(s.vo_audio); a.load();
+    drawWaveformTo(document.getElementById('mwave-'+sid), url || assetUrl(s.vo_audio), '#22d3ee');
+  }
+  useBtn.style.display = url ? 'inline-flex' : 'none';
+  msg.textContent = url ? 'previewing a draft — not yet live' : '';
+}
+async function useVersion(sid, kind){
+  const sel = document.getElementById(`ver-${kind}-${sid}`);
+  if(!sel.value) return;
+  if(!confirm("Make this draft the current (live) version?\n\nThe existing current version is archived to _history first, so nothing is lost.")) return;
+  const r = await postJSON('/api/restore-version', {id: sel.value});
+  if(r.ok){ flash(`Shot ${sid} now uses the selected ${kind} draft`); loadScenes(); }
+  else flash('Error: '+(r.error||'?'));
+}
+async function buildSavedPanel(){
+  const rows = document.getElementById('savedrows');
+  rows.innerHTML = 'loading…';
+  const items = await (await fetch(P('/api/saved'))).json();
+  if(!items.length){ rows.innerHTML = '<div class="qempty">No saved clips yet — hit 💾 Save on any shot before regenerating.</div>'; return; }
+  rows.innerHTML = '';
+  for(const e of items){
+    const url = `projects/${currentProject}/${e.file}?t=${Date.now()}`;
+    const media = e.kind==='video'
+      ? `<video src="${url}" controls preload="metadata" class="savedvid"></video>`
+      : `<audio src="${url}" controls preload="none" class="savedaud"></audio>`;
+    const fn = e.label.replace(/[^a-z0-9]+/gi,'-') + (e.kind==='video'?'.mp4':'.wav');
+    const div = document.createElement('div');
+    div.className = 'savedrow';
+    div.innerHTML = `${media}
+      <div class="savedmeta">
+        <div><span class="tag ${e.kind==='video'?'visual':'vo'}">${e.kind}</span> <strong>${e.label}</strong></div>
+        <div class="hint">saved ${e.created} · origin Shot ${e.scene}${e.vo_text?(' · "'+e.vo_text.slice(0,60)+'"'):''}</div>
+        <div class="savedactions">
+          <button class="btn-cyan btn-sm" onclick="restoreVersion('${e.id}')">↩ Restore to Shot ${e.scene}</button>
+          <a class="dlbtn" href="${url}" download="${fn}">⬇ Download</a>
+          <button class="btn-danger btn-sm" onclick="deleteVersion('${e.id}')">🗑 Delete</button>
+        </div>
+      </div>`;
+    rows.appendChild(div);
+  }
+}
+async function restoreVersion(vid){
+  if(!confirm("Restore this saved clip to its shot?\n\nThe shot's current version is archived to _history first, so nothing is lost.")) return;
+  const r = await postJSON('/api/restore-version', {id:vid});
+  if(r.ok){ flash(`Restored to Shot ${r.restored_to}`); loadScenes(); }
+  else flash('Error: '+(r.error||'?'));
+}
+async function deleteVersion(vid){
+  if(!confirm('Delete this saved clip permanently?')) return;
+  const r = await postJSON('/api/delete-version', {id:vid});
+  if(r.ok){ flash('Saved clip deleted'); buildSavedPanel(); }
+  else flash('Error: '+(r.error||'?'));
+}
+
+/* ---------- trim clips ---------- */
+function toggleTrim(){
+  const el = document.getElementById('trimpanel');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if(el.style.display === 'block') buildTrimPanel();
+}
+function buildTrimPanel(){
+  const rows = document.getElementById('trimrows');
+  rows.innerHTML = '';
+  if(!SCENES.length){ rows.innerHTML = '<div class="qempty">No clips yet.</div>'; return; }
+  for(const s of SCENES){
+    const div = document.createElement('div');
+    div.className = 'trimclip';
+    div.innerHTML = `
+      <div class="tt"><video id="tv-${s.id}" src="${assetUrl(s.video)}" preload="metadata" muted playsinline></video>
+        <audio id="ta-${s.id}" preload="none"></audio>
+        SHOT ${String(s.id).padStart(2,'0')} · ${s.title||('Shot '+s.id)}</div>
+
+      <div class="lane-label">✂️ Video — drag the in / out handles across the frames</div>
+      <div class="dualrange videolane" id="vl-${s.id}">
+        <div class="fill" id="fill-${s.id}"></div>
+        <input type="range" id="ts-${s.id}" min="0" max="100" step="0.05" value="0" oninput="onTrim(${s.id},'s')">
+        <input type="range" id="te-${s.id}" min="0" max="100" step="0.05" value="100" oninput="onTrim(${s.id},'e')">
+      </div>
+
+      <div class="lane-label">🎙 Voiceover — drag the cyan handle to set VO start</div>
+      <div class="dualrange audiolane">
+        <canvas class="wave" id="wave-${s.id}"></canvas>
+        <input type="range" class="voinput" id="vo-${s.id}" min="0" max="100" step="0.05" value="0" oninput="onVo(${s.id})">
+      </div>
+
+      <div class="trimreadout">
+        <span id="ro-${s.id}">loading…</span>
+        <span id="voro-${s.id}" style="color:var(--cyan)">VO +0.00s</span>
+        <button class="btn-ghost btn-sm pvbtn" id="pv-${s.id}" onclick="previewTrim(${s.id})">▶ Preview trim</button>
+        <button class="btn-cyan btn-sm" onclick="saveTrim(${s.id})">Save trim</button>
+      </div>`;
+    rows.appendChild(div);
+    const v = div.querySelector('#tv-'+s.id);
+    const init = () => initTrim(s, v);
+    v.addEventListener('loadedmetadata', init, {once:true});
+    if(v.readyState >= 1) init();
+    loadFilmstrip(s.id);
+  }
+}
+async function loadFilmstrip(id){
+  try{
+    const r = await (await fetch(P('/api/filmstrip') + '&scene=' + id)).json();
+    if(r.url){ document.getElementById('vl-'+id).style.backgroundImage = `url("${r.url}?t=${_cb}")`; }
+  }catch(_){}
+}
+function initTrim(s, v){
+  const dur = (v.duration && isFinite(v.duration)) ? v.duration : (s.duration || 8);
+  const ts = document.getElementById('ts-'+s.id), te = document.getElementById('te-'+s.id);
+  ts.max = dur; te.max = dur;
+  ts.value = s.trim_start || 0;
+  te.value = (s.trim_end == null ? dur : s.trim_end);
+  const vo = document.getElementById('vo-'+s.id);
+  vo.max = dur; vo.value = s.vo_offset || 0;
+  document.getElementById('voro-'+s.id).textContent = 'VO +' + (s.vo_offset||0).toFixed(2) + 's';
+  updateTrim(s.id);
+  drawWave(s.id, assetUrl(s.vo_audio), dur, s.vo_offset || 0);   // VO waveform, offset-shifted
+}
+
+function onVo(id){
+  const off = parseFloat(document.getElementById('vo-'+id).value) || 0;
+  document.getElementById('voro-'+id).textContent = 'VO +' + off.toFixed(2) + 's';
+  const s = SCENES.find(x=>x.id===id);
+  const dur = parseFloat(document.getElementById('ts-'+id).max) || (s.duration||8);
+  drawWave(id, assetUrl(s.vo_audio), dur, off);
+  seekPrev(id, off);   // show the video frame where the VO will begin
+}
+
+async function drawWave(id, url, clipMax, offset){
+  const canvas = document.getElementById('wave-'+id);
+  if(!canvas) return;
+  try{
+    const buf = await (await fetch(url)).arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    const audio = await ac.decodeAudioData(buf);
+    const data = audio.getChannelData(0);
+    const W = canvas.clientWidth || 600, H = canvas.clientHeight || 44;
+    canvas.width = W; canvas.height = H;
+    const g = canvas.getContext('2d');
+    g.clearRect(0,0,W,H);
+    const off = offset || 0;
+    const startX = Math.floor((off / (clipMax || 1)) * W);            // shift by VO offset
+    const frac = Math.min(1, audio.duration / (clipMax || audio.duration));
+    const drawW = Math.max(1, Math.min(W - startX, Math.floor(W * frac)));
+    const step = Math.max(1, Math.floor(data.length / drawW));
+    g.fillStyle = '#22d3ee';
+    for(let x=0; x<drawW; x++){
+      let min=1, max=-1;
+      for(let j=0;j<step;j++){ const d=data[x*step+j]; if(d<min)min=d; if(d>max)max=d; }
+      const y1=(1+min)*H/2, y2=(1+max)*H/2;
+      g.fillRect(startX + x, y1, 1, Math.max(1, y2-y1));
+    }
+    ac.close();
+  }catch(e){ /* VO may be missing for a brand-new clip — leave canvas blank */ }
+}
+function seekPrev(id, t){ const v = document.getElementById('tv-'+id); try{ v.currentTime = t; }catch(_){} }
+
+let _prevToken = 0;
+function previewTrim(id){
+  const v = document.getElementById('tv-'+id);
+  const a = document.getElementById('ta-'+id);
+  const btn = document.getElementById('pv-'+id);
+  const reset = () => { btn.textContent = '▶ Preview trim'; v.muted = true; };
+  if(v && !v.paused){ v.pause(); if(a) a.pause(); reset(); return; }   // toggle off
+  // stop any other clip's preview
+  document.querySelectorAll('.trimclip video').forEach(x => { if(x!==v) x.pause(); });
+  document.querySelectorAll('.trimclip audio').forEach(x => { if(x!==a) x.pause(); });
+  document.querySelectorAll('.pvbtn').forEach(b => { if(b!==btn) b.textContent = '▶ Preview trim'; });
+  const s = SCENES.find(x=>x.id===id);
+  const start = parseFloat(document.getElementById('ts-'+id).value) || 0;
+  const end = parseFloat(document.getElementById('te-'+id).value);
+  const voOff = parseFloat(document.getElementById('vo-'+id).value) || 0;
+  const token = ++_prevToken;
+  let aStarted = false;
+  a.src = assetUrl(s.vo_audio); a.currentTime = 0;
+  v.muted = false;                       // hear the clip's own audio + VO for a real test
+  try{ v.currentTime = start; }catch(_){}
+  v.play().catch(()=>{});
+  v.ontimeupdate = () => {
+    if(token !== _prevToken) return;
+    if(!aStarted && (v.currentTime - start) >= voOff){ a.play().catch(()=>{}); aStarted = true; }
+    if(v.currentTime >= end - 0.05){ v.ontimeupdate = null; v.pause(); a.pause(); reset(); }
+  };
+  btn.textContent = '⏸ Stop';
+}
+function onTrim(id, which){
+  const ts = document.getElementById('ts-'+id), te = document.getElementById('te-'+id);
+  let a = parseFloat(ts.value), b = parseFloat(te.value);
+  const gap = 0.2;
+  if(which === 's'){ if(a > b - gap){ a = Math.max(0, b - gap); ts.value = a; } seekPrev(id, a); }
+  else { if(b < a + gap){ b = a + gap; te.value = b; } seekPrev(id, b); }
+  updateTrim(id);
+}
+function updateTrim(id){
+  const ts = document.getElementById('ts-'+id), te = document.getElementById('te-'+id);
+  const max = parseFloat(ts.max) || 1;
+  const a = parseFloat(ts.value), b = parseFloat(te.value);
+  const fill = document.getElementById('fill-'+id);
+  fill.style.left = (a/max*100) + '%';
+  fill.style.width = ((b-a)/max*100) + '%';
+  document.getElementById('ro-'+id).textContent = `in ${a.toFixed(2)}s → out ${b.toFixed(2)}s  (clip ${max.toFixed(1)}s)`;
+}
+async function saveTrim(id){
+  const ts = document.getElementById('ts-'+id), te = document.getElementById('te-'+id);
+  const a = parseFloat(ts.value) || 0;
+  const b = parseFloat(te.value);
+  const dur = parseFloat(ts.max) || b;
+  const end = (b >= dur - 0.05) ? null : b;   // full length → store null (whole clip)
+  const vo_offset = parseFloat(document.getElementById('vo-'+id).value) || 0;
+  const r = await postJSON('/api/set-trim', {scene:id, start:a, end, vo_offset});
+  if(r.ok){
+    const s = SCENES.find(x=>x.id===id);
+    if(s){ s.trim_start = r.trim_start; s.trim_end = r.trim_end; s.vo_offset = r.vo_offset; }
+    flash(`Saved shot ${id}: ${r.trim_start}s→${r.trim_end==null?'end':r.trim_end+'s'}, VO +${r.vo_offset||0}s`);
+  } else flash('Error: '+(r.error||'?'));
+}
+
+/* ---------- uploads ---------- */
+function pickFile(id){
+  const files = [...document.getElementById('file-'+id).files];
+  if(!files.length){ uploads[id] = null; return; }
+  Promise.all(files.map(f => new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => res({dataUrl: r.result, name: f.name});
+    r.readAsDataURL(f);
+  }))).then(list => {
+    uploads[id] = list;
+    document.getElementById('filename-'+id).innerHTML =
+      `<span style="color:var(--magenta)">✓ ${list.length} image${list.length>1?'s':''}</span> — attach on re-submit`;
+    document.getElementById('previews-'+id).innerHTML =
+      list.map(u => `<img class="refthumb" src="${u.dataUrl}" title="${u.name}">`).join('');
+  });
+}
+
+/* ---------- queue actions ---------- */
+async function resubmit(id, kind){
+  const body = {scene:id, kind};
+  if(kind === 'visual'){
+    body.prompt = document.getElementById('prompt-'+id).value;
+    body.soul_id = document.getElementById('soul-'+id).value.trim();
+    const durEl = document.getElementById('dur-'+id);
+    if(durEl) body.duration = parseInt(durEl.value);
+    if(uploads[id] && uploads[id].length){
+      body.ref_images_data = uploads[id].map(u => u.dataUrl);
+      body.ref_images_names = uploads[id].map(u => u.name);
+    }
+  } else {
+    body.vo_text = document.getElementById('vo-'+id).value;
+    const vp = document.getElementById('voicepick-'+id);
+    if(vp) body.voice_id = vp.value;
+  }
+  const res = await postJSON('/api/resubmit', body);
+  if(res.ok){ flash(`Queued ${kind} re-submit for shot ${id}`); loadQueue(); }
+  else flash('Error: '+(res.error||'unknown'));
+}
+
+async function loadQueue(){
+  const q = await (await fetch(P('/api/queue'))).json();
+  const el = document.getElementById('qitems');
+  if(!q.length){ el.innerHTML = '<div class="qempty">Nothing queued yet.</div>'; return; }
+  el.innerHTML = '';
+  for(const e of q){
+    const nimg = (e.new_ref_images && e.new_ref_images.length) || (e.new_ref_image ? 1 : 0);
+    const soul = e.new_soul_id ? '🧬 char · ' : '';
+    const nu = e.new_scene ? '🆕 ' : '';
+    const desc = e.kind==='visual'
+      ? nu + soul + (nimg ? `+${nimg} ref img · ` : '') + (e.new_prompt||'').slice(0,80)
+      : (e.new_vo_text||'').slice(0,90);
+    const d = document.createElement('div');
+    d.className = 'qitem';
+    d.innerHTML = `<span class="tag ${e.kind}">${e.kind}</span>
+      <span class="badge">shot ${e.scene}</span>
+      <span class="grow">${desc}</span>
+      <button class="btn-ghost btn-sm" onclick="del('${e.id}')">✕</button>`;
+    el.appendChild(d);
+  }
+}
+async function del(id){ await postJSON('/api/delete', {id}); loadQueue(); }
+
+async function deleteScene(id){
+  const s = SCENES.find(x=>x.id===id);
+  const title = s ? (s.title||('Shot '+id)) : ('Shot '+id);
+  if(!confirm(`Delete "${title}" from this project?\n\nIts video, voiceover and thumbnail are archived to assets/_history/ (recoverable), and it's removed from the film.`)) return;
+  const r = await postJSON('/api/delete-scene', {scene:id});
+  if(r.ok){ flash(`Deleted shot ${id} (archived)`); loadScenes(); loadQueue(); }
+  else flash('Error: '+(r.error||'?'));
+}
+
+async function copyForClaude(){
+  const q = await (await fetch(P('/api/queue'))).json();
+  if(!q.length){ flash('Queue is empty'); return; }
+  let txt = `Process these re-submissions for project "${currentProject}" (plur-dashboard/projects/${currentProject}/queue.jsonl):\n\n`;
+  for(const e of q){
+    if(e.kind==='visual'){
+      txt += `• SHOT ${e.scene}${e.new_scene?' (NEW)':''} — VISUAL: "${e.new_prompt}"\n`;
+      if(e.new_soul_id) txt += `  character/element: ${e.new_soul_id}\n`;
+      if(e.new_ref_images) txt += `  ref images: ${e.new_ref_images.join(', ')}\n`;
+      if(e.new_vo_text) txt += `  voiceover: "${e.new_vo_text}"\n`;
+    } else {
+      txt += `• SHOT ${e.scene} — VOICEOVER: "${e.new_vo_text}"\n`;
+    }
+    txt += '\n';
+  }
+  try{ await navigator.clipboard.writeText(txt); flash('Copied — paste into Claude'); }
+  catch(_){ prompt('Copy this for Claude:', txt); }
+}
+
+/* ---------- add clip ---------- */
+function toggleAddClip(){
+  const el = document.getElementById('addclip');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if(el.style.display === 'block'){
+    document.getElementById('ac-soulpick').innerHTML = soulOptions('');
+  }
+}
+function acPickSoul(){ document.getElementById('ac-soul').value = document.getElementById('ac-soulpick').value; }
+async function addClip(){
+  const prompt_ = document.getElementById('ac-prompt').value.trim();
+  if(!prompt_){ flash('A visual prompt is required'); return; }
+  const body = {
+    title: document.getElementById('ac-title').value.trim(),
+    prompt: prompt_,
+    soul_id: document.getElementById('ac-soul').value.trim(),
+    vo_text: document.getElementById('ac-vo').value.trim(),
+  };
+  const r = await postJSON('/api/add-clip', body);
+  if(r.ok){
+    flash(`Queued new clip → Shot ${r.new_scene_id}`);
+    ['ac-title','ac-prompt','ac-soul','ac-vo'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('addclip').style.display = 'none';
+    loadQueue();
+  } else flash('Error: '+(r.error||'?'));
+}
+
+/* ---------- engine status / run ---------- */
+async function loadStatus(){
+  const s = await (await fetch(P('/api/config-status'))).json();
+  const el = document.getElementById('statuspill');
+  const btn = document.getElementById('runbtn');
+  const sdk = s.sdk_ready ? '<span class="ok">SDK ✓</span>' : '<span class="bad">SDK missing</span>';
+  const key = s.has_credentials ? '<span class="ok">key ✓</span>' : '<span class="bad">no HF_KEY (set it in .env, restart app.py)</span>';
+  const run = s.running ? ' · <span class="go">running…</span>' : '';
+  el.innerHTML = `Standalone engine: ${sdk} · ${key}${run}`;
+  btn.disabled = !(s.sdk_ready && s.has_credentials && !s.running);
+  return s;
+}
+async function checkApiWallet(){
+  const el = document.getElementById('apiwallet');
+  el.textContent = 'Checking API wallet…';
+  const r = await (await fetch('/api/api-credit-status')).json();
+  const link = ' · <a href="https://cloud.higgsfield.ai" target="_blank" style="color:var(--cyan)">manage ↗</a>';
+  const map = {
+    funded: '<span style="color:var(--cyan)">API wallet: funded ✓</span> — the ⚡ button can generate video',
+    empty: '<span style="color:var(--red)">API wallet: empty ✗</span> — add Cloud API credits to enable ⚡ (separate from Team Plan)',
+    no_key: '<span style="color:var(--red)">no API key set</span>',
+    auth_error: '<span style="color:var(--red)">API key invalid</span>',
+    no_sdk: 'SDK venv missing',
+    error: 'check failed',
+  };
+  el.innerHTML = (map[r.api] || ('API: ' + r.api)) + link;
+}
+
+async function runQueue(){
+  const q = await (await fetch(P('/api/queue'))).json();
+  if(!q.length){ flash('Queue is empty'); return; }
+  if(!confirm(`Generate ${q.length} pending item(s) for this project through Higgsfield? This spends credits.`)) return;
+  const res = await postJSON('/api/run-queue', {});
+  if(res.error){ flash('Error: '+res.error); return; }
+  flash('Generation started…');
+  document.getElementById('runlog').style.display = 'block';
+  pollLog();
+}
+async function pollLog(){
+  const r = await (await fetch(P('/api/run-log'))).json();
+  const el = document.getElementById('runlog');
+  el.textContent = r.log || '(waiting for output…)';
+  el.scrollTop = el.scrollHeight;
+  await loadStatus();
+  if(r.running){ setTimeout(pollLog, 1500); }
+  else { flash('Run finished — reloading'); loadScenes(); loadQueue(); }
+}
+
+/* ---------- global settings (shared across projects) ---------- */
+async function loadSettings(){
+  const s = await (await fetch('/api/settings')).json();
+  CATALOG = s.catalog;
+  GLOBAL_VOICE = s.current.voice_id;
+  const vm = document.getElementById('videoModel');
+  vm.innerHTML = '';
+  let matched = false;
+  for(const m of s.catalog.video_models){
+    const o = document.createElement('option');
+    o.value = m.key; o.textContent = m.label;
+    if(m.image_to_video_model_id === s.current.image_to_video_model_id){ o.selected = true; matched = true; }
+    vm.appendChild(o);
+  }
+  if(!matched){
+    const o = document.createElement('option');
+    o.value=''; o.textContent = `(custom) ${s.current.image_to_video_model_id}`; o.selected = true;
+    vm.prepend(o);
+  }
+  const sel = s.catalog.video_models.find(m=>m.key===vm.value);
+  document.getElementById('videoHint').textContent = sel
+    ? `image→video: ${sel.image_to_video_model_id}  ·  text→video: ${sel.text_to_video_model_id}`
+    : 'Custom model set in config.json.';
+  const vc = document.getElementById('voice');
+  vc.innerHTML = '';
+  for(const g of ['male','female']){
+    const grp = document.createElement('optgroup'); grp.label = g[0].toUpperCase()+g.slice(1);
+    for(const v of s.catalog.voices.filter(x=>x.gender===g)){
+      const o = document.createElement('option');
+      o.value = v.voice_id; o.textContent = v.name;
+      if(v.voice_id === s.current.voice_id) o.selected = true;
+      grp.appendChild(o);
+    }
+    vc.appendChild(grp);
+  }
+}
+async function setVideoModel(){
+  const key = document.getElementById('videoModel').value;
+  if(!key) return;
+  const r = await postJSON('/api/set-config', {video_key:key});
+  if(r.ok){ flash('Video model saved'); loadSettings(); } else flash('Error: '+(r.error||'?'));
+}
+async function setVoice(){
+  const r = await postJSON('/api/set-config', {voice_id: document.getElementById('voice').value});
+  if(r.ok){ flash('Voice saved'); } else flash('Error: '+(r.error||'?'));
+}
+
+/* ---------- init ---------- */
+(async () => {
+  await loadCharacters();
+  await loadSettings();   // load voices before scenes so per-shot voice pickers populate
+  await loadProjects();
+  loadProjectData();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+.env
+.venv/
+uploads/
+run.log
+queue.jsonl
+processed.jsonl
+assets/_history/
+__pycache__/
+exports/
+projects/*/exports/
