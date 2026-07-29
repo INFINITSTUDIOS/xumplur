@@ -355,6 +355,8 @@ class Handler(BaseHTTPRequestHandler):
         route = self.path.split("?", 1)[0]
         if route == "/api/resubmit":
             return self.handle_resubmit(data)
+        if route == "/api/upload-vo":
+            return self.handle_upload_vo(data)
         if route == "/api/add-clip":
             return self.handle_add_clip(data)
         if route == "/api/delete":
@@ -710,6 +712,55 @@ class Handler(BaseHTTPRequestHandler):
         with open(queue_path(pid), "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
         return self._send(200, {"ok": True, "entry": entry})
+
+    def handle_upload_vo(self, data):
+        """Attach a finished voiceover audio file directly to a scene.
+
+        This is the local→cloud bridge: voiceovers are generated on the local
+        dashboard (Sterling voice via MCP), then the resulting mp3/wav is uploaded
+        here so it lands in a cloud scene. No TTS runs in the cloud.
+        """
+        pid = self._proj_from(data)
+        if not pid:
+            return self._send(400, {"error": "unknown project"})
+        try:
+            sid = int(data.get("scene"))
+        except (TypeError, ValueError):
+            return self._send(400, {"error": "scene required"})
+        m = re.match(r"data:(audio/[\w.+-]+);base64,(.*)$", data.get("audio_data") or "", re.S)
+        if not m:
+            return self._send(400, {"error": "audio_data must be a base64 audio data URI"})
+        ext = {"audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav",
+               "audio/x-wav": ".wav", "audio/wave": ".wav", "audio/mp4": ".m4a",
+               "audio/x-m4a": ".m4a", "audio/aac": ".aac", "audio/ogg": ".ogg",
+               "audio/webm": ".webm", "audio/flac": ".flac"}.get(m.group(1), ".mp3")
+        scenes = load_json(scenes_path(pid), [])
+        scene = next((s for s in scenes if s["id"] == sid), None)
+        if not scene:
+            return self._send(404, {"error": "scene not found"})
+        try:
+            raw = base64.b64decode(m.group(2))
+        except Exception:
+            return self._send(400, {"error": "could not decode audio data"})
+        if not raw:
+            return self._send(400, {"error": "empty audio file"})
+        base = pdir(pid)
+        old_rel = scene.get("vo_audio")
+        if old_rel:
+            _archive(pid, os.path.join(base, old_rel))
+        rel = f"assets/audio/scene{sid}{ext}"
+        dst = os.path.join(base, rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "wb") as f:
+            f.write(raw)
+        scene["vo_audio"] = rel
+        scene["vo_rev"] = int(time.time())   # NEW badge
+        if (data.get("vo_text") or "").strip():
+            scene["vo_text"] = data["vo_text"].strip()
+        if data.get("voice_id"):
+            scene["voice_id"] = data["voice_id"]
+        save_json(scenes_path(pid), scenes)
+        return self._send(200, {"ok": True, "vo_audio": rel, "bytes": len(raw)})
 
     def handle_add_clip(self, data):
         pid = self._proj_from(data)

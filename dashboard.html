@@ -467,7 +467,11 @@ async function loadScenes(){
           </div>
           ${draftSwitcher(s.id,'audio')}
         </div>
-        <button class="btn-cyan" onclick="resubmit(${s.id},'vo')">Re-submit voiceover ⟲</button>
+        <div class="vorow">
+          <button class="btn-cyan" onclick="resubmit(${s.id},'vo')">Re-submit voiceover ⟲</button>
+          <button class="btn-ghost" onclick="document.getElementById('vofile-${s.id}').click()" title="Attach a finished voiceover audio file (generate the Sterling VO locally, then upload the mp3/wav here — works in the cloud, no TTS needed)">⬆ Upload VO audio</button>
+          <input type="file" id="vofile-${s.id}" accept="audio/*" style="display:none" onchange="uploadVo(${s.id}, this)">
+        </div>
       </div>`;
     wrap.appendChild(card);
   }
@@ -1010,6 +1014,25 @@ async function resubmit(id, kind){
   }
   const res = await postJSON('/api/resubmit', body);
   if(res.ok){ flash(`Queued ${kind} re-submit for shot ${id}`); loadQueue(); }
+  else flash('Error: '+(res.error||'unknown'));
+}
+
+async function uploadVo(id, input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const dataUrl = await new Promise((res,rej)=>{
+    const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  const body = {scene:id, audio_data:dataUrl};
+  const voEl = document.getElementById('vo-'+id);
+  if(voEl && voEl.value.trim()) body.vo_text = voEl.value.trim();
+  const vp = document.getElementById('voicepick-'+id);
+  if(vp) body.voice_id = vp.value;
+  flash(`Uploading “${file.name}” to shot ${id}…`);
+  const res = await postJSON('/api/upload-vo', body);
+  input.value = '';
+  if(res.ok){ flash(`Voiceover attached to shot ${id} (${Math.round(res.bytes/1024)} KB)`); await loadScenes(); }
   else flash('Error: '+(res.error||'unknown'));
 }
 
