@@ -1,59 +1,66 @@
-# Deploying the PLÜR Dashboard to Sevalla (team subdomain)
+# Deploying the PLÜR Dashboard to Kinsta Application Hosting (team subdomain)
 
 This app is a **Python server that needs ffmpeg and persistent storage**.
 
-> **Where does this run?** Kinsta moved its Application Hosting into a separate product, **Sevalla**
-> (sevalla.com). That's why MyKinsta has no "Applications" tab anymore. Your WordPress site stays on
-> Kinsta/MyKinsta untouched; this dashboard runs on **Sevalla**, a separate signup (log in with
-> Google / GitHub / email). The two are fully independent — WordPress never runs this code — and the
-> subdomain (e.g. `dashboard.yoursite.com`) is pointed at the Sevalla app via DNS.
+> ### 🚨 Two corrections to generic Kinsta/Python guides — required for THIS app
+> Most online Kinsta Python tutorials use the **Buildpacks** path with a **gunicorn** start command.
+> **Both are wrong for this app:**
+> 1. **Use the Dockerfile build path, NOT Buildpacks/"Standard".** Buildpacks install Python packages
+>    only — they do **not** include **ffmpeg**, which this app needs for thumbnails, filmstrips, and film
+>    render. Our `Dockerfile` installs ffmpeg. Choose "deploy with a Dockerfile."
+> 2. **Leave the start command BLANK — do NOT enter gunicorn.** This is a plain stdlib HTTP server, not a
+>    WSGI/Flask/Django app; `gunicorn ...wsgi:application` would crash. The Docker image's `CMD`
+>    (`python3 app.py`) starts the server and binds the `PORT` Kinsta injects on `0.0.0.0`.
+>
+> (Application Hosting is the same platform Kinsta now also brands as **Sevalla**. If your MyKinsta has no
+> account-level **Applications** section, use sevalla.com instead — the steps below are identical.)
+
+Your WordPress site stays on Kinsta untouched; this dashboard is a separate **Application**, and the
+subdomain (e.g. `dashboard.xumplur.com`) is pointed at it via DNS.
 
 ## ⚠️ Prerequisites (read first)
-1. **A Sevalla account** — sign up at sevalla.com. Pay-as-you-go; there's a usage-based free trial credit.
-   **Attaching a custom domain requires a paid pod tier** (the free/Hobby pod can't add custom domains).
-2. **A Git repository.** Sevalla deploys from GitHub / GitLab / Bitbucket, or a Dockerfile/Docker image.
-   Already done: **INFINITSTUDIOS/xumplur** (private) on branch `main`.
-3. **Persistent disk** — add a Sevalla disk mounted at **`/data`**. Without it, every generated
-   video/voiceover, edit, draft and trim **resets on each redeploy** (the container filesystem is ephemeral).
-   The app reads `DATA_DIR=/data` and seeds it on first boot. (Disks pin the app to a single instance — fine here.)
+1. **Account-level Applications access** (MyKinsta → 🏠 → Applications, or sevalla.com). A **paid pod** is
+   required to attach a custom domain later.
+2. **A Git repository** — done: **INFINITSTUDIOS/xumplur** (private) on branch `main`.
+3. **Persistent disk** mounted at **`/data`**. Without it, every generated video/voiceover, edit, draft and
+   trim **resets on each redeploy** (the container filesystem is ephemeral). The app reads `DATA_DIR=/data`
+   and seeds it on first boot. (A disk pins the app to a single instance — fine here.)
 4. **Funded Cloud API wallet** — the ⚡ "Generate all pending" button uses the Higgsfield **Cloud API**
    (platform.higgsfield.ai), a separate credit wallet from your Team Plan. It must have credits.
 
 ## Git (done)
-The repo is already pushed:
 ```bash
 # already created & pushed as a PRIVATE repo:
 #   https://github.com/INFINITSTUDIOS/xumplur   (branch: main)
 ```
 `.gitignore`/`.dockerignore` exclude `.env`, `.venv`, history, and exports — the secret key is never committed.
 
-## Deploy on Sevalla
-1. **sevalla.com → Applications → Add application** → connect GitHub → pick **INFINITSTUDIOS/xumplur**, branch `main`.
-2. Build: choose **Dockerfile** (Sevalla builds it — ffmpeg + SDK included). No build/start command needed
-   (`CMD` runs `python3 app.py`).
-3. Pick a paid **pod** size (needed for the custom domain later; the smallest is fine to start).
-4. **Applications → your app → Disks → Create disk**: Process = web, **Path = `/data`**, Size = a few GB.
-5. Set the environment variables (next section), then **Deploy**.
+## Deploy (MyKinsta → 🏠 account level → Applications → Add service → Application)
+1. Connect GitHub → pick **INFINITSTUDIOS/xumplur**, branch `main`.
+2. **Basic settings:** name it (e.g. `xumplur-dashboard`); **Data center = Phoenix (US)** (matches your WP + users).
+3. **Build environment: Dockerfile** (⚠️ not Standard/Buildpacks). **Start command: leave BLANK** (⚠️ not gunicorn).
+4. **Environment variables** (next section).
+5. Pick a **paid pod** (needed for the custom domain), then **Create application**.
+6. After it deploys: **Disks / Persistent storage → add a disk**, process = web, **mount path `/data`**, a few GB.
 
-## Environment variables / secrets (Applications → your app → Environment variables)
+## Environment variables / secrets
 | Var | Value | Purpose |
 |-----|-------|---------|
 | `HOST` | `0.0.0.0` | already set in the Dockerfile |
-| `PORT` | *(leave unset)* | Sevalla injects it; the app reads it |
-| `DATA_DIR` | `/data` | persistent disk mount (already in Dockerfile; must match the disk's Path) |
+| `PORT` | *(leave unset)* | Kinsta injects it; the app reads it |
+| `DATA_DIR` | `/data` | persistent disk mount (already in Dockerfile; must match the disk's mount path) |
 | `HF_KEY` | `your-key:your-secret` | Higgsfield Cloud API credential (mark as secret) |
 | `DASH_USER` | e.g. `team` | login username for the gate |
 | `DASH_PASSWORD` | a shared password (mark as secret) | **enables the login gate** — without it the site is open to anyone with the URL |
 
-## Domain (the subdomain of your WordPress site)
-Requires a **paid pod** (Hobby pods can't add custom domains).
-1. **Applications → your app → Domains → Add custom domain** → enter your subdomain (e.g. `dashboard.yoursite.com`).
-2. Sevalla shows DNS records to add wherever your DNS is managed (likely the same place your WordPress DNS lives):
+## Domain (the subdomain of your site)
+Requires a **paid pod**.
+1. **Application → Domains → Add domain** → enter your subdomain (e.g. `dashboard.xumplur.com`).
+2. Add the DNS records Kinsta/Sevalla shows, wherever your DNS is managed:
    - a **TXT** ownership record (`_cf-custom-hostname`) and a **TXT** SSL-validation record (`_acme-challenge`), then
-   - the **A record** value(s) Sevalla provides to point the subdomain at the app.
-   (Note: Sevalla points via **A records**, not a CNAME.) These only add the subdomain's own records — they
-   do not touch the WordPress site's records.
-3. HTTPS/SSL is **automatic and free** once DNS resolves; keep the `_acme-challenge` record in place so it auto-renews.
+   - the record(s) it provides to point the subdomain at the app (Cloudflare-for-SaaS setups use **A records**).
+   These add only the subdomain's own records — they don't touch the WordPress site's records.
+3. HTTPS/SSL is **automatic and free** once DNS resolves; keep the `_acme-challenge` record so it auto-renews.
 
 ## What works in the cloud vs. not
 - ✅ **Video** generation via the ⚡ button — works once `HF_KEY` is set and the Cloud API wallet is funded.
