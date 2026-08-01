@@ -21,6 +21,16 @@
   }
   .wrap{max-width:1120px; margin:0 auto; padding:28px 20px 80px}
   header.top{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:6px}
+  .userchip{margin-left:auto; align-self:center; display:flex; align-items:center; gap:9px;
+    font-size:13px; color:var(--cream); background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:5px 12px 5px 6px}
+  .userchip img{width:26px; height:26px; border-radius:50%; object-fit:cover}
+  .userchip .uname{font-weight:600}
+  .userchip a{color:var(--cyan); text-decoration:none; font-size:12px; margin-left:4px}
+  .userchip a:hover{text-decoration:underline}
+  .author{display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--gold);
+    background:rgba(217,192,136,.12); border:1px solid rgba(217,192,136,.3);
+    border-radius:999px; padding:2px 9px; margin-left:8px; vertical-align:middle}
   .brand{font-weight:800; font-size:40px; letter-spacing:.14em; text-transform:uppercase}
   .brand .m{color:var(--magenta)}
   .brand .c{color:var(--cyan)}
@@ -202,6 +212,7 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">PL<span class="m">Ü</span>R <span class="c">·</span> SCENE DASHBOARD</div>
+    <div class="userchip" id="userchip" style="display:none"></div>
   </header>
 
   <div class="tabs" id="tabs"></div>
@@ -415,6 +426,7 @@ async function loadScenes(){
           <span class="badge ${prod?'prod':''}">${prod?'Real product':'Motion graphic'}</span>
           ${s.camera?`<span class="badge">${s.camera}</span>`:''}
           <span class="badge">9:16</span>
+          ${authorBadge(s.video_author,'🎬')}
         </div>
         <div class="vidwrap">
           <video id="vid-${s.id}" controls preload="metadata" poster="${assetUrl(s.thumb)}" src="${assetUrl(s.video)}"></video>
@@ -450,7 +462,7 @@ async function loadScenes(){
         <button class="btn-magenta" onclick="resubmit(${s.id},'visual')">Re-submit visual ⟲</button>
         <div class="split"></div>
         <div class="field">
-          <label>Voiceover</label>
+          <label>Voiceover ${authorBadge(s.vo_author,'🎙')}</label>
           <div class="vowave" id="vowrap-${s.id}" onclick="voSeek(event,${s.id})" title="Click the waveform to scrub">
             <span class="newbadge" id="vonew-${s.id}" style="display:none">✦ NEW</span>
             <button class="voplay" id="voplay-${s.id}" onclick="voToggle(event,${s.id})">▶</button>
@@ -792,7 +804,7 @@ async function buildSavedPanel(){
     div.innerHTML = `${media}
       <div class="savedmeta">
         <div><span class="tag ${e.kind==='video'?'visual':'vo'}">${e.kind}</span> <strong>${e.label}</strong></div>
-        <div class="hint">saved ${e.created} · origin Shot ${e.scene}${e.vo_text?(' · "'+e.vo_text.slice(0,60)+'"'):''}</div>
+        <div class="hint">saved ${e.created} · origin Shot ${e.scene}${e.author?(' · by '+esc(e.author)):''}${e.vo_text?(' · "'+esc(e.vo_text.slice(0,60))+'"'):''}</div>
         <div class="savedactions">
           <button class="btn-cyan btn-sm" onclick="restoreVersion('${e.id}')">↩ Restore to Shot ${e.scene}</button>
           <a class="dlbtn" href="${url}" download="${fn}">⬇ Download</a>
@@ -1052,7 +1064,8 @@ async function loadQueue(){
     d.className = 'qitem';
     d.innerHTML = `<span class="tag ${e.kind}">${e.kind}</span>
       <span class="badge">shot ${e.scene}</span>
-      <span class="grow">${desc}</span>
+      <span class="grow">${esc(desc)}</span>
+      ${authorBadge(e.author,'👤')}
       <button class="btn-ghost btn-sm" onclick="del('${e.id}')">✕</button>`;
     el.appendChild(d);
   }
@@ -1210,7 +1223,28 @@ async function setVoice(){
 }
 
 /* ---------- init ---------- */
+let GLOBAL_USER = null;
+function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function authorBadge(name, icon){
+  return name ? `<span class="author" title="Created by ${esc(name)}">${icon} ${esc(name)}</span>` : '';
+}
+async function loadMe(){
+  try{
+    const r = await (await fetch('/api/me')).json();
+    if(!r.auth) return;                 // sign-in not configured (local/interim) — hide chip
+    const chip = document.getElementById('userchip');
+    if(r.user){
+      GLOBAL_USER = r.user;
+      const pic = r.user.picture ? `<img src="${esc(r.user.picture)}" alt="">` : '👤';
+      chip.innerHTML = `${pic}<span class="uname">${esc(r.user.name||r.user.email)}</span>`
+        + `<a href="/auth/logout">Logout</a>`;
+      chip.style.display = 'flex';
+    }
+  }catch(e){ /* ignore */ }
+}
+
 (async () => {
+  await loadMe();
   await loadCharacters();
   await loadSettings();   // load voices before scenes so per-shot voice pickers populate
   await loadProjects();

@@ -186,6 +186,8 @@ def generate_visual(client, cfg, entry, pid):
         extra += ["--soul", soul_id]
     if entry.get("duration"):
         extra += ["--duration", str(entry["duration"])]
+    if entry.get("author"):
+        extra += ["--author", entry["author"]]
     if entry.get("new_scene"):
         extra += ["--new-scene", "--title", entry.get("title", f"Shot {scene}")]
     _apply(pid, extra)
@@ -204,6 +206,8 @@ def generate_vo(client, cfg, entry, pid):
         raise RuntimeError(f"No audio URL in result: {json.dumps(result)[:300]}")
     log(f"  result audio → {url[:70]}…")
     extra = ["--scene", str(scene), "--kind", "vo", "--url", url, "--vo-text", text, "--voice", voice]
+    if entry.get("author"):
+        extra += ["--author", entry["author"]]
     if entry.get("id"):
         extra += ["--queue-id", entry["id"]]
     _apply(pid, extra)
@@ -230,7 +234,8 @@ def run(pid):
                 # a new clip may carry a voiceover line to generate too
                 if e.get("new_scene") and (e.get("new_vo_text") or "").strip():
                     if not a_model_placeholder(cfg):
-                        generate_vo(client, cfg, {"scene": e["scene"], "new_vo_text": e["new_vo_text"]}, pid)
+                        generate_vo(client, cfg, {"scene": e["scene"], "new_vo_text": e["new_vo_text"],
+                                                  "author": e.get("author")}, pid)
                     else:
                         log("  (voiceover skipped — cloud API has no TTS; regenerate VO via Claude/MCP)")
                 ok += 1

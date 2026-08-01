@@ -111,6 +111,7 @@ def main():
     ap.add_argument("--new-scene", action="store_true")
     ap.add_argument("--title")
     ap.add_argument("--duration", type=int)
+    ap.add_argument("--author")
     a = ap.parse_args()
     if not a.project:
         raise SystemExit("no project (pass --project or create one in projects.json)")
@@ -143,6 +144,8 @@ def main():
         download(P, a.url, vid)
         rethumb(vid, thumb)
         scene["video_rev"] = int(time.time())   # marks the video as freshly generated ("NEW")
+        if a.author:
+            scene["video_author"] = a.author
         if a.duration:
             scene["duration"] = a.duration
         if a.prompt:
@@ -164,6 +167,8 @@ def main():
         backup(P, aud)
         download(P, a.url, aud)
         scene["vo_rev"] = int(time.time())      # marks the voiceover as freshly generated ("NEW")
+        if a.author:
+            scene["vo_author"] = a.author
         if a.vo_text:
             scene["vo_text"] = a.vo_text
         if a.voice:

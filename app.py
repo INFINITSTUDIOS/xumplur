@@ -9,14 +9,20 @@ assets/, uploads/, and queue.jsonl. Shared at the root: config.json,
 catalog.json, characters.json, and the engine scripts.
 """
 import base64
+import hashlib
+import hmac
 import json
 import os
 import re
+import secrets as _secrets
 import shutil
 import subprocess
 import sys
 import time
+import urllib.parse as _urlparse
+import urllib.request as _urlreq
 import uuid
+from http import cookies as _http_cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +64,74 @@ def _seed_data_dir():
 
 
 _seed_data_dir()
+
+# --- Google sign-in (OpenID Connect) ---------------------------------------
+# Active only when GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET are set. Otherwise the
+# app falls back to the optional HTTP Basic gate (DASH_PASSWORD), or stays open.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_ALLOWED_DOMAINS = [d.strip().lower() for d in
+                          os.environ.get("GOOGLE_ALLOWED_DOMAINS", "").split(",") if d.strip()]
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "").rstrip("/")   # optional; else derived from Host header
+SESSION_SECRET = (os.environ.get("SESSION_SECRET") or _secrets.token_hex(32)).encode()
+AUTH_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+SESSION_MAX_AGE = 30 * 24 * 3600  # 30 days
+
+
+def _b64u(b):
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+
+def _b64u_dec(s):
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def _sign(payload):
+    return hmac.new(SESSION_SECRET, payload, hashlib.sha256).hexdigest()
+
+
+def make_session_token(user):
+    """Stateless signed session: base64(json).hmac — no server-side store needed."""
+    payload = _b64u(json.dumps({"n": user.get("name", ""), "e": user.get("email", ""),
+                                "p": user.get("picture", ""), "iat": int(time.time())}).encode())
+    return payload + "." + _sign(payload.encode())
+
+
+def read_session_token(tok):
+    try:
+        payload, sig = tok.split(".", 1)
+        if not hmac.compare_digest(sig, _sign(payload.encode())):
+            return None
+        d = json.loads(_b64u_dec(payload))
+        if int(time.time()) - int(d.get("iat", 0)) > SESSION_MAX_AGE:
+            return None
+        return {"name": d.get("n", ""), "email": d.get("e", ""), "picture": d.get("p", "")}
+    except Exception:
+        return None
+
+
+def decode_id_token(id_token):
+    """Trust the id_token received directly from Google's token endpoint over TLS
+    (obtained with our client_secret) — no local signature verification needed."""
+    try:
+        _, payload, _ = id_token.split(".")
+        return json.loads(_b64u_dec(payload))
+    except Exception:
+        return {}
+
+
+def domain_allowed(claims):
+    if claims.get("email_verified") is False:
+        return False
+    email = (claims.get("email") or "").lower()
+    hd = (claims.get("hd") or "").lower()
+    dom = email.split("@")[-1] if "@" in email else ""
+    if not GOOGLE_ALLOWED_DOMAINS:
+        return bool(email)   # no allowlist configured → any signed-in Google user
+    return (hd in GOOGLE_ALLOWED_DOMAINS) or (dom in GOOGLE_ALLOWED_DOMAINS)
+
 
 RUN = {}  # project_id -> Popen
 
@@ -219,8 +293,61 @@ class Handler(BaseHTTPRequestHandler):
         pid = qs_get(self.path, "project") or default_pid()
         return pid if valid_pid(pid) else default_pid()
 
+    current_user = None
+
+    def _cookies(self):
+        c = _http_cookies.SimpleCookie()
+        raw = self.headers.get("Cookie")
+        if raw:
+            try:
+                c.load(raw)
+            except Exception:
+                pass
+        return c
+
+    def _read_session(self):
+        c = self._cookies()
+        if "plur_session" in c:
+            return read_session_token(c["plur_session"].value)
+        return None
+
+    def _redirect(self, location, cookies=None):
+        self.send_response(302)
+        self.send_header("Location", location)
+        for ck in (cookies or []):
+            self.send_header("Set-Cookie", ck)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _base_url(self):
+        if APP_BASE_URL:
+            return APP_BASE_URL
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "localhost"
+        local = host.startswith("localhost") or host.startswith("127.")
+        proto = self.headers.get("X-Forwarded-Proto") or ("http" if local else "https")
+        return f"{proto}://{host}"
+
+    def _author(self):
+        u = self.current_user or {}
+        return u.get("name") or u.get("email") or None
+
     def _check_auth(self):
-        """Optional HTTP Basic gate: active only when DASH_PASSWORD is set (for cloud/team use)."""
+        """Google sign-in when configured; else optional HTTP Basic gate (DASH_PASSWORD)."""
+        self.current_user = None
+        path = self.path.split("?", 1)[0]
+        if AUTH_ENABLED:
+            if path.startswith("/auth/"):
+                return True
+            user = self._read_session()
+            if user:
+                self.current_user = user
+                return True
+            if path.startswith("/api/"):
+                self._send(401, {"error": "login required", "login": "/auth/login"})
+            else:
+                self._redirect("/auth/login")
+            return False
+        # fallback: optional HTTP Basic gate (interim, until Google sign-in is configured)
         pw = os.environ.get("DASH_PASSWORD")
         if not pw:
             return True
@@ -239,10 +366,74 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         return False
 
+    def handle_auth(self, path):
+        if path == "/auth/login":
+            state = _secrets.token_urlsafe(24)
+            params = {
+                "client_id": GOOGLE_CLIENT_ID,
+                "redirect_uri": self._base_url() + "/auth/callback",
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+                "access_type": "online",
+                "prompt": "select_account",
+            }
+            if len(GOOGLE_ALLOWED_DOMAINS) == 1:
+                params["hd"] = GOOGLE_ALLOWED_DOMAINS[0]   # workspace hint (only if a single domain)
+            url = GOOGLE_AUTH_URL + "?" + _urlparse.urlencode(params)
+            ck = f"plur_oauth_state={state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600"
+            return self._redirect(url, [ck])
+        if path == "/auth/callback":
+            qs = _urlparse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            code = (qs.get("code") or [""])[0]
+            state = (qs.get("state") or [""])[0]
+            c = self._cookies()
+            want = c["plur_oauth_state"].value if "plur_oauth_state" in c else ""
+            if not code or not state or not want or state != want:
+                return self._send(400, "Login failed (bad state). <a href='/auth/login'>Try again</a>",
+                                  CTYPES[".html"])
+            claims = self._exchange_code(code)
+            if not claims or not domain_allowed(claims):
+                who = (claims or {}).get("email", "(unknown account)")
+                doms = ", ".join(GOOGLE_ALLOWED_DOMAINS) or "(any)"
+                msg = (f"<h3>Access denied</h3><p><b>{who}</b> is not on an authorized domain "
+                       f"({doms}).</p><p><a href='/auth/logout'>Sign in with a different account</a></p>")
+                return self._send(403, msg, CTYPES[".html"])
+            user = {"name": claims.get("name") or claims.get("email", ""),
+                    "email": claims.get("email", ""), "picture": claims.get("picture", "")}
+            tok = make_session_token(user)
+            cks = [f"plur_session={tok}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age={SESSION_MAX_AGE}",
+                   "plur_oauth_state=; Max-Age=0; Path=/"]
+            return self._redirect("/", cks)
+        if path == "/auth/logout":
+            return self._redirect("/auth/login", ["plur_session=; Max-Age=0; Path=/"])
+        return self._send(404, {"error": "unknown auth route"})
+
+    def _exchange_code(self, code):
+        body = _urlparse.urlencode({
+            "code": code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": self._base_url() + "/auth/callback",
+            "grant_type": "authorization_code",
+        }).encode()
+        try:
+            req = _urlreq.Request(GOOGLE_TOKEN_URL, data=body,
+                                  headers={"Content-Type": "application/x-www-form-urlencoded"})
+            with _urlreq.urlopen(req, timeout=20) as r:
+                tok = json.loads(r.read().decode())
+            return decode_id_token(tok.get("id_token", ""))
+        except Exception:
+            return {}
+
     def do_GET(self):
         if not self._check_auth():
             return
         path = self.path.split("?", 1)[0]
+        if path.startswith("/auth/"):
+            return self.handle_auth(path)
+        if path == "/api/me":
+            return self._send(200, {"user": self.current_user, "auth": AUTH_ENABLED})
         if path in ("/", "/index.html"):
             with open(os.path.join(ROOT, "dashboard.html"), "rb") as f:
                 return self._send(200, f.read(), CTYPES[".html"])
@@ -416,6 +607,7 @@ class Handler(BaseHTTPRequestHandler):
                  "label": (data.get("label") or "").strip() or default_label,
                  "vo_text": scene.get("vo_text", "") if kind == "audio" else "",
                  "voice_id": scene.get("voice_id") if kind == "audio" else None,
+                 "author": self._author(),
                  "file": f"saved/{fname}", "created": time.strftime("%Y-%m-%d %H:%M")}
         lst = load_json(saved_path(pid), [])
         lst.insert(0, entry)
@@ -691,6 +883,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "need kind (visual|vo) and scene"})
         rid = uuid.uuid4().hex[:8]
         entry = {"id": rid, "scene": int(scene), "kind": kind, "status": "queued",
+                 "author": self._author(),
                  "created": time.strftime("%Y-%m-%d %H:%M:%S")}
         if kind == "visual":
             entry["new_prompt"] = (data.get("prompt") or "").strip()
@@ -755,6 +948,7 @@ class Handler(BaseHTTPRequestHandler):
             f.write(raw)
         scene["vo_audio"] = rel
         scene["vo_rev"] = int(time.time())   # NEW badge
+        scene["vo_author"] = self._author()
         if (data.get("vo_text") or "").strip():
             scene["vo_text"] = data["vo_text"].strip()
         if data.get("voice_id"):
@@ -776,6 +970,7 @@ class Handler(BaseHTTPRequestHandler):
                  "title": (data.get("title") or f"Shot {new_id}").strip(),
                  "new_prompt": prompt, "new_soul_id": (data.get("soul_id") or "").strip(),
                  "new_vo_text": (data.get("vo_text") or "").strip(),
+                 "author": self._author(),
                  "status": "queued", "created": time.strftime("%Y-%m-%d %H:%M:%S")}
         saved = self._save_ref_images(pid, new_id, rid, data)
         if saved:

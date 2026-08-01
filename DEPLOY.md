@@ -50,8 +50,25 @@ subdomain (e.g. `dashboard.xumplur.com`) is pointed at it via DNS.
 | `PORT` | *(leave unset)* | Kinsta injects it; the app reads it |
 | `DATA_DIR` | `/data` | persistent disk mount (already in Dockerfile; must match the disk's mount path) |
 | `HF_KEY` | `your-key:your-secret` | Higgsfield Cloud API credential (mark as secret) |
-| `DASH_USER` | e.g. `team` | login username for the gate |
-| `DASH_PASSWORD` | a shared password (mark as secret) | **enables the login gate** — without it the site is open to anyone with the URL |
+| `GOOGLE_CLIENT_ID` | from Google Cloud (see below) | enables Google sign-in |
+| `GOOGLE_CLIENT_SECRET` | from Google Cloud (mark as secret) | enables Google sign-in |
+| `GOOGLE_ALLOWED_DOMAINS` | `xumplur.com,infinitstudios.com,illusiaagency.com` | only these Workspace domains may sign in |
+| `SESSION_SECRET` | a 64-char random hex (mark as secret) | signs login cookies; set once and keep stable |
+| `DASH_USER` / `DASH_PASSWORD` | *(interim only)* | HTTP Basic gate used **only when Google isn't configured**; ignored once `GOOGLE_CLIENT_ID`+`GOOGLE_CLIENT_SECRET` are set |
+
+## Google sign-in setup (per-user login + authorship)
+When `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` are set, the app requires Google sign-in and only lets
+in accounts on the domains in `GOOGLE_ALLOWED_DOMAINS`. Each signed-in user's name is stamped on whatever
+they generate/upload (shown as an author badge). Create the OAuth client in **Google Cloud Console**:
+1. **APIs & Services → OAuth consent screen** → User type **Internal** (if your org owns the domain) → fill app name + support email.
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
+3. **Authorized redirect URIs** — add one per hostname the app answers on:
+   - `https://xumplur-create-7xdlj.sevalla.app/auth/callback`
+   - (later, once the custom domain is live) `https://<your-subdomain>/auth/callback`
+4. Copy the **Client ID** and **Client secret** into the env vars above. Redeploy.
+
+No JavaScript-origin entry is needed (this is the server-side authorization-code flow). The app derives its
+redirect URL from the request host, so each registered redirect URI just needs to match a hostname it serves.
 
 ## Domain (the subdomain of your site)
 Requires a **paid pod**.
