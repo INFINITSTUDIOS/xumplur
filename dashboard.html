@@ -348,8 +348,11 @@
     </div>
     <div>
       <h2>Voiceover voice</h2>
-      <select id="voice" onchange="setVoice()"></select>
-      <div class="hint">Default voice for shots that don't have their own voice set below.</div>
+      <div class="voicerow">
+        <select id="voice" onchange="setVoice()"></select>
+        <button class="btn-ghost btn-sm" onclick="previewVoice('voice')" title="Hear a sample of the selected voice">▶ Preview</button>
+      </div>
+      <div class="hint">Default voice for shots that don't have their own voice set below. ▶ Preview plays a sample.</div>
     </div>
   </div>
 
@@ -650,6 +653,7 @@ async function loadScenes(){
           <div class="voicerow">
             <label>Voice for this shot</label>
             <select class="voicepick" id="voicepick-${s.id}">${voiceOptions(s.voice_id)}</select>
+            <button class="btn-ghost btn-sm" onclick="previewVoice('voicepick-${s.id}')" title="Hear a sample of the selected voice">▶ Preview</button>
             <a class="dlbtn" href="${assetUrl(s.vo_audio)}" download="${voiceNameFor(s.voice_id)}-shot${s.id}-voiceover.wav" title="Download voiceover .wav">⬇ Audio</a>
             <button class="btn-ghost btn-sm" onclick="saveVersion(${s.id},'audio')" title="Save the current voiceover as a draft">💾 Save as Draft</button>
           </div>
@@ -801,6 +805,17 @@ function voiceNameFor(id){
   const vid = id || GLOBAL_VOICE;
   const v = (CATALOG && CATALOG.voices || []).find(x => x.voice_id === vid);
   return (v ? v.name : 'voice').replace(/[^A-Za-z0-9]+/g, '-');
+}
+let _voicePrev = null;
+function previewVoice(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const v = (CATALOG && CATALOG.voices || []).find(x => x.voice_id === sel.value);
+  if(!v || !v.preview){ flash('No preview available for this voice'); return; }
+  if(!_voicePrev) _voicePrev = new Audio();
+  _voicePrev.pause();
+  _voicePrev.src = v.preview;
+  _voicePrev.play().then(()=>flash(`▶ ${v.name}`)).catch(()=>flash('Could not play preview'));
 }
 function voiceOptions(selectedId){
   const sel = selectedId || GLOBAL_VOICE;

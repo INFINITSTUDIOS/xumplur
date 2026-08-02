@@ -2,48 +2,260 @@
   "_note": "Options for the dashboard dropdowns. video_models: image_to_video_model_id values are confirmed from Higgsfield docs; text_to_video_model_id is a best-effort guess per family (confirm in cloud.higgsfield.ai/explore). voices: preset voice_ids from Higgsfield.",
   "_video_note": "via=cloud → renders standalone via the ⚡ button (cloud REST API, no Claude). via=mcp → Seedance 2.0 etc. are only on the Higgsfield MCP, so those render through Claude ('run the queue'); the standalone engine defers them. mcp_model_id is the MCP model slug used by Claude.",
   "video_models": [
-    { "key": "kling-2.1-pro", "label": "Kling 2.1 Pro (standalone)", "via": "cloud", "image_to_video_model_id": "kling-video/v2.1/pro/image-to-video", "text_to_video_model_id": "kling-video/v2.1/master/text-to-video" },
-    { "key": "dop-standard", "label": "Higgsfield DoP (standalone)", "via": "cloud", "image_to_video_model_id": "higgsfield-ai/dop/standard", "text_to_video_model_id": "higgsfield-ai/dop/standard" },
-    { "key": "dop-preview", "label": "Higgsfield DoP Preview (standalone)", "via": "cloud", "image_to_video_model_id": "higgsfield-ai/dop/preview", "text_to_video_model_id": "higgsfield-ai/dop/preview" },
-    { "key": "seedance-2-0", "label": "Seedance 2.0 (via Claude)", "via": "mcp", "mcp_model_id": "seedance_2_0", "image_to_video_model_id": "seedance_2_0", "text_to_video_model_id": "seedance_2_0" },
-    { "key": "seedance-2-0-mini", "label": "Seedance 2.0 Mini (via Claude)", "via": "mcp", "mcp_model_id": "seedance_2_0_mini", "image_to_video_model_id": "seedance_2_0_mini", "text_to_video_model_id": "seedance_2_0_mini" }
+    {
+      "key": "kling-2.1-pro",
+      "label": "Kling 2.1 Pro (standalone)",
+      "via": "cloud",
+      "image_to_video_model_id": "kling-video/v2.1/pro/image-to-video",
+      "text_to_video_model_id": "kling-video/v2.1/master/text-to-video"
+    },
+    {
+      "key": "dop-standard",
+      "label": "Higgsfield DoP (standalone)",
+      "via": "cloud",
+      "image_to_video_model_id": "higgsfield-ai/dop/standard",
+      "text_to_video_model_id": "higgsfield-ai/dop/standard"
+    },
+    {
+      "key": "dop-preview",
+      "label": "Higgsfield DoP Preview (standalone)",
+      "via": "cloud",
+      "image_to_video_model_id": "higgsfield-ai/dop/preview",
+      "text_to_video_model_id": "higgsfield-ai/dop/preview"
+    },
+    {
+      "key": "seedance-2-0",
+      "label": "Seedance 2.0 (via Claude)",
+      "via": "mcp",
+      "mcp_model_id": "seedance_2_0",
+      "image_to_video_model_id": "seedance_2_0",
+      "text_to_video_model_id": "seedance_2_0"
+    },
+    {
+      "key": "seedance-2-0-mini",
+      "label": "Seedance 2.0 Mini (via Claude)",
+      "via": "mcp",
+      "mcp_model_id": "seedance_2_0_mini",
+      "image_to_video_model_id": "seedance_2_0_mini",
+      "text_to_video_model_id": "seedance_2_0_mini"
+    }
   ],
   "voices": [
-    { "voice_id": "dc382508-c8bd-443c-8cb2-46e57b8d2e6f", "name": "Sterling", "gender": "male" },
-    { "voice_id": "6b528d43-c056-4a2f-9d82-1591a7ba13b0", "name": "John", "gender": "male" },
-    { "voice_id": "858499d9-fef5-40e1-bc29-b4dc661dc283", "name": "Callum", "gender": "male" },
-    { "voice_id": "549ff70a-3ee7-4f04-a4d9-89a24fab7709", "name": "Bram", "gender": "male" },
-    { "voice_id": "7fca156f-f446-4ae5-a811-2a61b253eff0", "name": "Grant", "gender": "male" },
-    { "voice_id": "db2fa999-9bc9-49c1-ac8b-702133cb0f79", "name": "Eric", "gender": "male" },
-    { "voice_id": "6f98d3dd-324f-4845-8c28-c1d1647a06cd", "name": "Marcus", "gender": "male" },
-    { "voice_id": "30fc8796-ceb6-4a66-b3a7-4a145ef7f346", "name": "Arthur", "gender": "male" },
-    { "voice_id": "d8ba9f14-8a24-44db-932b-99e16c45bd32", "name": "Cillian", "gender": "male" },
-    { "voice_id": "c2acff45-84b2-4974-892d-89fa2d4e5598", "name": "Brooks", "gender": "male" },
-    { "voice_id": "1ad38ba4-9cc4-4f2f-9fde-b0fefdf67ae5", "name": "Gideon", "gender": "male" },
-    { "voice_id": "7e63ac18-5fcd-4aba-8078-a86d4e11c127", "name": "Roman", "gender": "male" },
-    { "voice_id": "573e5163-59b3-4926-aab1-951ef2985f81", "name": "Harrison", "gender": "male" },
-    { "voice_id": "7888649a-b139-4295-a57b-4e103079d817", "name": "Hugo", "gender": "male" },
-    { "voice_id": "73a45c18-0c56-4642-a61e-f6b303f8ded1", "name": "Leo", "gender": "male" },
-    { "voice_id": "f1373f24-3b96-433f-9a68-e595810ef608", "name": "Kevin", "gender": "male" },
-    { "voice_id": "d9d5c263-f84e-4752-97b5-3750fcc6fd2f", "name": "Alistair", "gender": "male" },
-    { "voice_id": "ef70cc83-3015-4bad-9359-0ea968c43ec0", "name": "Caspian", "gender": "male" },
-    { "voice_id": "6b3e3642-f7b7-4cb8-9688-51e233c4b92f", "name": "Emily", "gender": "female" },
-    { "voice_id": "caeba733-3c17-43db-863e-69c7025512cd", "name": "Naomi", "gender": "female" },
-    { "voice_id": "8911390e-4b59-459b-ba84-19010917e1df", "name": "Onyx", "gender": "female" },
-    { "voice_id": "d3b201aa-086c-4d54-8568-a6bb9f4a0b63", "name": "Simone", "gender": "female" },
-    { "voice_id": "b9c5c5db-4eb7-468a-a0b7-d06423af0335", "name": "Remy", "gender": "female" },
-    { "voice_id": "9eb5a147-c322-4f8a-8bc5-a30679dfaf5c", "name": "Tamsin", "gender": "female" },
-    { "voice_id": "6dee0104-c129-4f59-8a2c-4c96501b104d", "name": "Lola", "gender": "female" },
-    { "voice_id": "023ebf5e-1970-40d8-825c-a5ef6a1dd4ff", "name": "Ines", "gender": "female" },
-    { "voice_id": "75e72cd5-011b-4130-a474-e8b1ab341f04", "name": "Marisol", "gender": "female" },
-    { "voice_id": "f6448975-768e-4327-b932-1b7c973d58e9", "name": "Roxie", "gender": "female" },
-    { "voice_id": "f32c8f51-449e-4ddf-bdf7-1527e11df917", "name": "Tallulah", "gender": "female" },
-    { "voice_id": "c25f78a0-714e-42af-8da3-a399cef94968", "name": "Hana", "gender": "female" },
-    { "voice_id": "1fb253b8-928b-4d29-a349-f242a71eaddf", "name": "Skye", "gender": "female" },
-    { "voice_id": "b0f766b7-8703-4bd1-b973-f857c36837b6", "name": "Maya", "gender": "female" },
-    { "voice_id": "80914268-dfae-4f76-8306-36f2d55f58f8", "name": "Quinn", "gender": "female" },
-    { "voice_id": "d0374db1-44b9-4f05-939e-0a9ae9dbbe6a", "name": "Zoe", "gender": "female" },
-    { "voice_id": "3811e986-0891-47cf-a1f5-78a1d62a547a", "name": "Imogen", "gender": "female" },
-    { "voice_id": "47fb207f-63fe-449e-915b-27b3d8098fd1", "name": "Harper", "gender": "female" }
+    {
+      "voice_id": "dc382508-c8bd-443c-8cb2-46e57b8d2e6f",
+      "name": "Sterling",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/ed37f856-236b-413e-9f4d-9c746648ea72.mp3"
+    },
+    {
+      "voice_id": "6b528d43-c056-4a2f-9d82-1591a7ba13b0",
+      "name": "John",
+      "gender": "male",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/fda261dc-1245-4bba-b47b-4debd425b31a.mp3"
+    },
+    {
+      "voice_id": "858499d9-fef5-40e1-bc29-b4dc661dc283",
+      "name": "Callum",
+      "gender": "male",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/40a9b67a-5d11-4f60-91d8-9ae4f3327ff1.wav"
+    },
+    {
+      "voice_id": "549ff70a-3ee7-4f04-a4d9-89a24fab7709",
+      "name": "Bram",
+      "gender": "male",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/92b784d6-f194-414b-8d78-fb7108ba4d5a.wav"
+    },
+    {
+      "voice_id": "7fca156f-f446-4ae5-a811-2a61b253eff0",
+      "name": "Grant",
+      "gender": "male",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/aba07f07-19c6-4360-a56e-e85d622b4634.wav"
+    },
+    {
+      "voice_id": "db2fa999-9bc9-49c1-ac8b-702133cb0f79",
+      "name": "Eric",
+      "gender": "male",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/6fa4bd1c-38b4-4dc8-85bd-24033dec9691.mp3"
+    },
+    {
+      "voice_id": "6f98d3dd-324f-4845-8c28-c1d1647a06cd",
+      "name": "Marcus",
+      "gender": "male",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/cd7a989c-89ba-43c8-bc02-44a8c429825f.wav"
+    },
+    {
+      "voice_id": "30fc8796-ceb6-4a66-b3a7-4a145ef7f346",
+      "name": "Arthur",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/080fcbab-8be3-4d60-8156-3c3040421e0f.mp3"
+    },
+    {
+      "voice_id": "d8ba9f14-8a24-44db-932b-99e16c45bd32",
+      "name": "Cillian",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/0641e334-cdc1-427c-9957-6d0677fb79fd.mp3"
+    },
+    {
+      "voice_id": "c2acff45-84b2-4974-892d-89fa2d4e5598",
+      "name": "Brooks",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/205ba406-f52c-4b61-b3f8-fd04cf683af5.mp3"
+    },
+    {
+      "voice_id": "1ad38ba4-9cc4-4f2f-9fde-b0fefdf67ae5",
+      "name": "Gideon",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/07a76edf-11cb-45dc-b00d-d6deb5fe6901.mp3"
+    },
+    {
+      "voice_id": "7e63ac18-5fcd-4aba-8078-a86d4e11c127",
+      "name": "Roman",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/bc7a7070-2785-4f2d-8b5a-78367abc1dee.mp3"
+    },
+    {
+      "voice_id": "573e5163-59b3-4926-aab1-951ef2985f81",
+      "name": "Harrison",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/725aa234-8c64-4a87-8f5e-220aca1375f7.mp3"
+    },
+    {
+      "voice_id": "7888649a-b139-4295-a57b-4e103079d817",
+      "name": "Hugo",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/238f10fc-f2a3-4458-aa15-6a3d6c324f6c.mp3"
+    },
+    {
+      "voice_id": "73a45c18-0c56-4642-a61e-f6b303f8ded1",
+      "name": "Leo",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/65169043-8bf9-403e-84e4-0eb6262026fd.mp3"
+    },
+    {
+      "voice_id": "f1373f24-3b96-433f-9a68-e595810ef608",
+      "name": "Kevin",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/f607d671-c0b7-4b2f-96b4-099653af48eb.mp3"
+    },
+    {
+      "voice_id": "d9d5c263-f84e-4752-97b5-3750fcc6fd2f",
+      "name": "Alistair",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/1da70cb9-bc0e-4ad4-b812-6e715cb94d6c.mp3"
+    },
+    {
+      "voice_id": "ef70cc83-3015-4bad-9359-0ea968c43ec0",
+      "name": "Caspian",
+      "gender": "male",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/d7517769-c0f0-4dbf-8faf-07a062ef3526.mp3"
+    },
+    {
+      "voice_id": "6b3e3642-f7b7-4cb8-9688-51e233c4b92f",
+      "name": "Emily",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/6cf1cf4b-8fd5-4ef2-abb7-10e43b2aa9be.mp3"
+    },
+    {
+      "voice_id": "caeba733-3c17-43db-863e-69c7025512cd",
+      "name": "Naomi",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/bfe496ad-1296-441e-9ba6-02cfe4761eb3.wav"
+    },
+    {
+      "voice_id": "8911390e-4b59-459b-ba84-19010917e1df",
+      "name": "Onyx",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/047111ca-5440-4693-b6b0-e4eac6ecb61b.wav"
+    },
+    {
+      "voice_id": "d3b201aa-086c-4d54-8568-a6bb9f4a0b63",
+      "name": "Simone",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/5eea58ed-68ca-42e0-b98b-c9c7cd8ef65e.wav"
+    },
+    {
+      "voice_id": "b9c5c5db-4eb7-468a-a0b7-d06423af0335",
+      "name": "Remy",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/a6457f72-a05b-421c-8487-7f38cd532dfb.wav"
+    },
+    {
+      "voice_id": "9eb5a147-c322-4f8a-8bc5-a30679dfaf5c",
+      "name": "Tamsin",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/a356efae-457f-4425-bd57-0b6db18e5aee.wav"
+    },
+    {
+      "voice_id": "6dee0104-c129-4f59-8a2c-4c96501b104d",
+      "name": "Lola",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/8019a885-0f35-4991-9ebd-4d0020cbfeb6.mp3"
+    },
+    {
+      "voice_id": "023ebf5e-1970-40d8-825c-a5ef6a1dd4ff",
+      "name": "Ines",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/a35522bb-1734-4a80-8e5f-64c05f1148a8.wav"
+    },
+    {
+      "voice_id": "75e72cd5-011b-4130-a474-e8b1ab341f04",
+      "name": "Marisol",
+      "gender": "female",
+      "preview": "https://cdn.higgsfield.ai/audio_voice/e64e0720-9d99-4873-aae5-7d86a803246c.wav"
+    },
+    {
+      "voice_id": "f6448975-768e-4327-b932-1b7c973d58e9",
+      "name": "Roxie",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/13633b42-3603-4422-b64d-e56ef39104b9.mp3"
+    },
+    {
+      "voice_id": "f32c8f51-449e-4ddf-bdf7-1527e11df917",
+      "name": "Tallulah",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/6d9fab46-e2ce-481e-8433-9bfdac49dca0.mp3"
+    },
+    {
+      "voice_id": "c25f78a0-714e-42af-8da3-a399cef94968",
+      "name": "Hana",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/3a978518-1fae-451e-bc30-08cb35b0d79f.mp3"
+    },
+    {
+      "voice_id": "1fb253b8-928b-4d29-a349-f242a71eaddf",
+      "name": "Skye",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/86e9dea6-6196-41a2-8856-e7c21df4e8cd.mp3"
+    },
+    {
+      "voice_id": "b0f766b7-8703-4bd1-b973-f857c36837b6",
+      "name": "Maya",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/dc8d2759-bb32-4b0e-904d-b8873efc958e.mp3"
+    },
+    {
+      "voice_id": "80914268-dfae-4f76-8306-36f2d55f58f8",
+      "name": "Quinn",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/9b7f84c7-8b42-4a32-a0f1-ba223bfd5fae.mp3"
+    },
+    {
+      "voice_id": "d0374db1-44b9-4f05-939e-0a9ae9dbbe6a",
+      "name": "Zoe",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/49455cd5-64e8-4578-8531-f1262f8b338b.mp3"
+    },
+    {
+      "voice_id": "3811e986-0891-47cf-a1f5-78a1d62a547a",
+      "name": "Imogen",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/0112058f-8bd6-423a-aa69-28112d237ac1.mp3"
+    },
+    {
+      "voice_id": "47fb207f-63fe-449e-915b-27b3d8098fd1",
+      "name": "Harper",
+      "gender": "female",
+      "preview": "https://d1xarpci4ikg0w.cloudfront.net/audio_voice_preset/preview/b9e42b96-7801-42a9-8a44-63e4e192a7f2.mp3"
+    }
   ]
 }
