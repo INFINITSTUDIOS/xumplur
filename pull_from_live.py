@@ -40,6 +40,9 @@ def main():
 
     cj = http.cookiejar.CookieJar()
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    # Sevalla is behind Cloudflare, which 403s the default python-urllib UA — look like a browser.
+    op.addheaders = [("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")]
 
     # 1) log in (only needed if the site has a password gate; harmless otherwise)
     try:
