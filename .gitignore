@@ -8,3 +8,8 @@ assets/_history/
 __pycache__/
 exports/
 projects/*/exports/
+
+# local sync artifacts
+projects_backup_*/
+.pull_tmp.zip
+plur-data.zip

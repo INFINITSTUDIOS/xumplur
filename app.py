@@ -551,6 +551,8 @@ class Handler(BaseHTTPRequestHandler):
                 "sdk_ready": os.path.isfile(VENV_PY),
                 "running": bool(proc and proc.poll() is None),
             })
+        if path == "/api/export":
+            return self.handle_export()
         if path == "/api/history":
             return self.handle_history()
         if path == "/api/filmstrip":
@@ -866,6 +868,40 @@ class Handler(BaseHTTPRequestHandler):
             if r.returncode != 0:
                 return self._send(500, {"error": f"concat failed: {r.stderr[-300:]}"})
         return self._send(200, {"url": f"projects/{pid}/exports/film.mp4", "scenes": len(seg_files)})
+
+    def handle_export(self):
+        """Stream a zip of all project data (scenes, assets, saved, history) for syncing
+        the live site's data down to a local/other instance. Auth-gated like everything else.
+        Add ?history=0 to skip the (large) _history archives."""
+        import zipfile
+        import tempfile
+        include_history = qs_get(self.path, "history") != "0"
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        try:
+            with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
+                if os.path.exists(PROJECTS_JSON):
+                    z.write(PROJECTS_JSON, "projects.json")
+                if os.path.isdir(PROJECTS_DIR):
+                    for root, _dirs, files in os.walk(PROJECTS_DIR):
+                        if not include_history and os.sep + "_history" in root:
+                            continue
+                        for fn in files:
+                            full = os.path.join(root, fn)
+                            z.write(full, os.path.relpath(full, DATA_ROOT))
+            tmp.close()
+            size = os.path.getsize(tmp.name)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Length", str(size))
+            self.send_header("Content-Disposition", 'attachment; filename="plur-data.zip"')
+            self.end_headers()
+            with open(tmp.name, "rb") as f:
+                shutil.copyfileobj(f, self.wfile)
+        finally:
+            try:
+                os.remove(tmp.name)
+            except OSError:
+                pass
 
     def handle_filmstrip(self):
         pid = self._pid()
