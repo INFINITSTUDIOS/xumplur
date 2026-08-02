@@ -190,6 +190,11 @@ async function go(e){e.preventDefault();
 
 RUN = {}  # project_id -> Popen
 
+# "Sync Cloud → Claude" button: only meaningful on a LOCAL instance pulling from the live site.
+IS_LOCAL = (DATA_ROOT == ROOT)
+LIVE_URL = os.environ.get("LIVE_URL", "https://xumplur-create-7xdlj.sevalla.app")
+PULL_SCRIPT = os.path.join(ROOT, "pull_from_live.py")
+
 CTYPES = {
     ".html": "text/html; charset=utf-8", ".js": "application/javascript",
     ".css": "text/css", ".json": "application/json",
@@ -507,8 +512,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/logout":
             return self._redirect("/login", ["plur_session=; Max-Age=0; Path=/"])
         if path == "/api/me":
-            return self._send(200, {"user": self.current_user,
-                                    "auth": AUTH_ENABLED, "password": PASSWORD_ENABLED})
+            return self._send(200, {"user": self.current_user, "auth": AUTH_ENABLED,
+                                    "password": PASSWORD_ENABLED, "local": IS_LOCAL,
+                                    "live_url": LIVE_URL})
         if path in ("/", "/index.html"):
             with open(os.path.join(ROOT, "dashboard.html"), "rb") as f:
                 return self._send(200, f.read(), CTYPES[".html"])
@@ -631,6 +637,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_upload_vo(data)
         if route == "/api/revert-history":
             return self.handle_revert_history(data)
+        if route == "/api/sync-from-live":
+            return self.handle_sync_from_live(data)
         if route == "/api/add-clip":
             return self.handle_add_clip(data)
         if route == "/api/delete":
@@ -868,6 +876,32 @@ class Handler(BaseHTTPRequestHandler):
             if r.returncode != 0:
                 return self._send(500, {"error": f"concat failed: {r.stderr[-300:]}"})
         return self._send(200, {"url": f"projects/{pid}/exports/film.mp4", "scenes": len(seg_files)})
+
+    def handle_sync_from_live(self, data):
+        """Local-only: pull the live site's project data down (runs pull_from_live.py).
+        The live password is supplied by the browser (stored in its localStorage), or via
+        the LIVE_PASSWORD env var — never persisted server-side."""
+        if not IS_LOCAL:
+            return self._send(400, {"error": "Sync only runs on the local dashboard, not the live site."})
+        pw = (data.get("password") or os.environ.get("LIVE_PASSWORD") or "").strip()
+        if not pw:
+            return self._send(401, {"error": "password required", "need_password": True})
+        url = (data.get("url") or LIVE_URL).strip()
+        if not os.path.isfile(PULL_SCRIPT):
+            return self._send(500, {"error": "pull_from_live.py missing"})
+        env = dict(os.environ, LIVE_PASSWORD=pw, LIVE_URL=url)
+        try:
+            r = subprocess.run([sys.executable, PULL_SCRIPT], cwd=ROOT, env=env,
+                               capture_output=True, text=True, timeout=900)
+        except Exception as e:
+            return self._send(500, {"error": f"sync failed to start: {e}"})
+        out = (r.stdout or "") + (r.stderr or "")
+        if r.returncode != 0:
+            bad_pw = "403" in out or "Forbidden" in out or "login" in out.lower()
+            return self._send(502, {"error": "sync failed" + (" (check the live password?)" if bad_pw else ""),
+                                    "detail": out[-500:], "need_password": bad_pw})
+        m = re.search(r"Synced (\d+) project", out)
+        return self._send(200, {"ok": True, "projects": int(m.group(1)) if m else None})
 
     def handle_export(self):
         """Stream a zip of all project data (scenes, assets, saved, history) for syncing

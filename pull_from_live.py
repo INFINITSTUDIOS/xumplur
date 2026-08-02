@@ -70,6 +70,10 @@ def main():
     if os.path.isdir(os.path.join(ROOT, "projects")):
         shutil.copytree(os.path.join(ROOT, "projects"), backup)
         print(f"  backed up local projects/ → {os.path.basename(backup)}")
+        # keep only the 3 most recent backups
+        old = sorted(g for g in __import__("glob").glob(os.path.join(ROOT, "projects_backup_*")))
+        for g in old[:-3]:
+            shutil.rmtree(g, ignore_errors=True)
 
     # 4) extract over the local copy
     with zipfile.ZipFile(tmp) as z:

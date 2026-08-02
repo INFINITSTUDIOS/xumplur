@@ -21,6 +21,7 @@
   }
   .wrap{max-width:1120px; margin:0 auto; padding:28px 20px 80px}
   header.top{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:6px}
+  .synclive{margin-left:auto; align-self:center}
   .userchip{margin-left:auto; align-self:center; display:flex; align-items:center; gap:9px;
     font-size:13px; color:var(--cream); background:rgba(255,255,255,.05);
     border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:5px 12px 5px 6px}
@@ -221,6 +222,8 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">PL<span class="m">Ü</span>R <span class="c">·</span> SCENE DASHBOARD</div>
+    <button id="synclive" class="btn-cyan btn-sm synclive" style="display:none" onclick="syncFromLive()"
+      title="Pull the latest project data from the live cloud site into this local dashboard">🔄 Sync Cloud → Claude</button>
     <div class="userchip" id="userchip" style="display:none"></div>
   </header>
 
@@ -1061,6 +1064,33 @@ async function uploadVo(id, input){
   else flash('Error: '+(res.error||'unknown'));
 }
 
+async function syncFromLive(){
+  const btn = document.getElementById('synclive');
+  const label = btn.textContent;
+  const body = {};
+  const saved = localStorage.getItem('livePw');
+  if(saved) body.password = saved;
+  btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  flash('Pulling latest data from the live site…');
+  try{
+    let res = await postJSON('/api/sync-from-live', body);
+    if(res.need_password){
+      const pw = prompt('Live site password (to pull cloud data):');
+      if(!pw){ return; }
+      localStorage.setItem('livePw', pw);
+      res = await postJSON('/api/sync-from-live', {password: pw});
+    }
+    if(res.ok){
+      flash(`Synced ${res.projects!=null?res.projects+' project(s)':''} from the live site ✅`);
+      await loadProjects(); loadProjectData();
+    }else{
+      if(res.need_password) localStorage.removeItem('livePw');
+      flash('Sync failed: '+(res.error||'unknown'));
+    }
+  }catch(e){ flash('Sync error: '+e); }
+  finally{ btn.disabled = false; btn.textContent = label; }
+}
+
 async function toggleHistory(id, kind){
   const el = document.getElementById(`hist-${kind}-${id}`);
   if(el.style.display === 'block'){ el.style.display = 'none'; return; }
@@ -1275,6 +1305,9 @@ function authorBadge(name, icon){
 async function loadMe(){
   try{
     const r = await (await fetch('/api/me')).json();
+    // Show the "Sync Cloud → Claude" button only on the local dashboard.
+    const sync = document.getElementById('synclive');
+    if(sync && r.local){ sync.style.display = 'inline-flex'; }
     if(!r.auth) return;                 // sign-in not configured (local/interim) — hide chip
     const chip = document.getElementById('userchip');
     if(r.user){
