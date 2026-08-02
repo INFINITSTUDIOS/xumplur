@@ -29,6 +29,12 @@ DEFAULT_URL = "https://xumplur-create-7xdlj.sevalla.app"
 
 
 def main():
+    try:
+        sys.path.insert(0, ROOT)
+        from env_loader import load_env
+        load_env()   # pick up LIVE_PASSWORD / LIVE_URL from .env for headless (cron / session-start) runs
+    except Exception:
+        pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default=os.environ.get("LIVE_URL", DEFAULT_URL))
     ap.add_argument("--password", default=os.environ.get("LIVE_PASSWORD"))

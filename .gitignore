@@ -13,3 +13,5 @@ projects/*/exports/
 projects_backup_*/
 .pull_tmp.zip
 plur-data.zip
+pull_cron.log
+pull_session.log
