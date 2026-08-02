@@ -72,8 +72,17 @@
   .shothead{display:flex; align-items:center; gap:10px}
   .shothead h3{margin:2px 0 8px; flex:1; min-width:0}
   .nextbtn{flex:none; width:34px; height:34px; margin-bottom:6px; border-radius:8px; border:1px solid var(--line);
-    background:#0e0a0d; color:var(--cream); font-size:16px; line-height:1; cursor:pointer}
+    background:#0e0a0d; color:var(--cream); font-size:16px; line-height:1; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; padding:0}
   .nextbtn:hover{border-color:var(--cyan); color:var(--cyan)}
+  .histtoggle{margin-top:8px}
+  .histpanel{margin-top:8px; display:flex; flex-direction:column; gap:10px;
+    max-height:340px; overflow-y:auto; padding:4px}
+  .histrow{display:flex; gap:12px; align-items:center; background:rgba(255,255,255,.04);
+    border:1px solid var(--line); border-radius:10px; padding:8px}
+  .histmedia{width:120px; border-radius:8px; flex:none; background:#000}
+  .histaud{flex:1; min-width:0}
+  .histmeta{display:flex; flex-direction:column; gap:6px; flex:1; min-width:0}
   .badges{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap}
   .badge{font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase;
     padding:3px 9px; border-radius:20px; border:1px solid var(--line); color:var(--muted)}
@@ -439,6 +448,8 @@ async function loadScenes(){
           <button class="btn-danger btn-sm" onclick="deleteScene(${s.id})">🗑 Delete clip</button>
         </div>
         ${draftSwitcher(s.id,'video')}
+        <button class="btn-ghost btn-sm histtoggle" onclick="toggleHistory(${s.id},'video')">⏱ Previous renders</button>
+        <div class="histpanel" id="hist-video-${s.id}" style="display:none"></div>
         ${s.storyboard?`<p class="story">${s.storyboard}</p>`:''}
       </div>
       <div class="edit">
@@ -478,6 +489,8 @@ async function loadScenes(){
             <button class="btn-ghost btn-sm" onclick="saveVersion(${s.id},'audio')" title="Save the current voiceover as a draft">💾 Save as Draft</button>
           </div>
           ${draftSwitcher(s.id,'audio')}
+          <button class="btn-ghost btn-sm histtoggle" onclick="toggleHistory(${s.id},'vo')">⏱ Previous voiceovers</button>
+          <div class="histpanel" id="hist-vo-${s.id}" style="display:none"></div>
         </div>
         <div class="vorow">
           <button class="btn-cyan" onclick="resubmit(${s.id},'vo')">Re-submit voiceover ⟲</button>
@@ -1046,6 +1059,32 @@ async function uploadVo(id, input){
   input.value = '';
   if(res.ok){ flash(`Voiceover attached to shot ${id} (${Math.round(res.bytes/1024)} KB)`); await loadScenes(); }
   else flash('Error: '+(res.error||'unknown'));
+}
+
+async function toggleHistory(id, kind){
+  const el = document.getElementById(`hist-${kind}-${id}`);
+  if(el.style.display === 'block'){ el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div class="hint">Loading previous versions…</div>';
+  const list = await (await fetch(P('/api/history') + `&scene=${id}&kind=${kind}`)).json();
+  if(!Array.isArray(list) || !list.length){
+    el.innerHTML = '<div class="hint">No previous versions archived yet.</div>'; return;
+  }
+  el.innerHTML = list.map(h => {
+    const media = kind === 'video'
+      ? `<video src="${assetUrl(h.url)}" controls preload="none" class="histmedia"></video>`
+      : `<audio src="${assetUrl(h.url)}" controls preload="none" class="histaud"></audio>`;
+    return `<div class="histrow">${media}
+      <div class="histmeta"><span class="hint">${esc(h.when)}</span>
+      <button class="btn-cyan btn-sm" onclick="revertHistory(${id},'${kind}','${esc(h.file)}')">↩ Revert to this</button></div>
+    </div>`;
+  }).join('');
+}
+async function revertHistory(id, kind, file){
+  if(!confirm('Revert this shot to the selected previous version?\n\nThe current one is archived first, so you can switch back to it too.')) return;
+  const r = await postJSON('/api/revert-history', {scene:id, kind, file});
+  if(r.ok){ flash(`Reverted shot ${id} ${kind==='vo'?'voiceover':'video'} to a previous render`); loadScenes(); }
+  else flash('Error: '+(r.error||'?'));
 }
 
 async function loadQueue(){

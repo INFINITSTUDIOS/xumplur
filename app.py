@@ -551,6 +551,8 @@ class Handler(BaseHTTPRequestHandler):
                 "sdk_ready": os.path.isfile(VENV_PY),
                 "running": bool(proc and proc.poll() is None),
             })
+        if path == "/api/history":
+            return self.handle_history()
         if path == "/api/filmstrip":
             return self.handle_filmstrip()
         if path == "/api/render-film":
@@ -625,6 +627,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_resubmit(data)
         if route == "/api/upload-vo":
             return self.handle_upload_vo(data)
+        if route == "/api/revert-history":
+            return self.handle_revert_history(data)
         if route == "/api/add-clip":
             return self.handle_add_clip(data)
         if route == "/api/delete":
@@ -1032,6 +1036,84 @@ class Handler(BaseHTTPRequestHandler):
             scene["voice_id"] = data["voice_id"]
         save_json(scenes_path(pid), scenes)
         return self._send(200, {"ok": True, "vo_audio": rel, "bytes": len(raw)})
+
+    VIDEO_EXTS = {".mp4", ".mov", ".webm"}
+    AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".aac", ".ogg", ".flac"}
+
+    def handle_history(self):
+        """List archived previous renders for a shot (from assets/_history), newest first."""
+        pid = self._pid()
+        try:
+            sid = int(qs_get(self.path, "scene"))
+        except (TypeError, ValueError):
+            return self._send(400, {"error": "scene required"})
+        kind = qs_get(self.path, "kind") or "video"
+        exts = self.VIDEO_EXTS if kind == "video" else self.AUDIO_EXTS
+        hist = os.path.join(pdir(pid), "assets", "_history")
+        out = []
+        if os.path.isdir(hist):
+            for fn in os.listdir(hist):
+                m = re.match(r"^(\d{8}_\d{6})_(.+)$", fn)
+                if not m:
+                    continue
+                ts, base = m.group(1), m.group(2)
+                stem, ext = os.path.splitext(base)
+                if ext.lower() not in exts or stem != f"scene{sid}":
+                    continue
+                try:
+                    when = time.strftime("%b %-d, %Y · %-I:%M %p", time.strptime(ts, "%Y%m%d_%H%M%S"))
+                except ValueError:
+                    when = ts
+                out.append({"file": fn, "ts": ts, "when": when, "url": f"assets/_history/{fn}"})
+        out.sort(key=lambda x: x["ts"], reverse=True)
+        return self._send(200, out)
+
+    def handle_revert_history(self, data):
+        """Restore a shot's video/voiceover to an archived previous render.
+        The current live asset is archived first, so a revert is itself reversible."""
+        pid = self._proj_from(data)
+        if not pid:
+            return self._send(400, {"error": "unknown project"})
+        try:
+            sid = int(data.get("scene"))
+        except (TypeError, ValueError):
+            return self._send(400, {"error": "scene required"})
+        kind = data.get("kind") or "video"
+        fn = os.path.basename(data.get("file") or "")   # basename guards against path traversal
+        if not re.match(r"^\d{8}_\d{6}_.+", fn):
+            return self._send(400, {"error": "bad history file"})
+        base = pdir(pid)
+        src = os.path.join(base, "assets", "_history", fn)
+        if not os.path.isfile(src):
+            return self._send(404, {"error": "history file not found"})
+        scenes = load_json(scenes_path(pid), [])
+        scene = next((s for s in scenes if s["id"] == sid), None)
+        if not scene:
+            return self._send(404, {"error": "scene not found"})
+        ext = os.path.splitext(fn)[1]
+        if kind == "video":
+            rel = scene.get("video") or f"assets/videos/scene{sid}.mp4"
+            dst = os.path.join(base, rel)
+            _archive(pid, dst)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            scene["video"] = rel
+            thumb = scene.get("thumb") or f"assets/thumbs/scene{sid}.jpg"
+            os.makedirs(os.path.dirname(os.path.join(base, thumb)), exist_ok=True)
+            _rethumb(dst, os.path.join(base, thumb))
+            scene["thumb"] = thumb
+            scene["video_rev"] = int(time.time())
+        else:
+            if scene.get("vo_audio"):
+                _archive(pid, os.path.join(base, scene["vo_audio"]))
+            rel = f"assets/audio/scene{sid}{ext}"
+            dst = os.path.join(base, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            scene["vo_audio"] = rel
+            scene["vo_rev"] = int(time.time())
+        save_json(scenes_path(pid), scenes)
+        return self._send(200, {"ok": True, "reverted": kind, "from": fn})
 
     def handle_add_clip(self, data):
         pid = self._proj_from(data)
