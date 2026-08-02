@@ -144,6 +144,7 @@ def main():
         download(P, a.url, vid)
         rethumb(vid, thumb)
         scene["video_rev"] = int(time.time())   # marks the video as freshly generated ("NEW")
+        scene.pop("pending", None)              # a generated shot is no longer a placeholder
         if a.author:
             scene["video_author"] = a.author
         if a.duration:

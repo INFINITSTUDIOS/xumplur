@@ -22,6 +22,26 @@
   .wrap{max-width:1120px; margin:0 auto; padding:28px 20px 80px}
   header.top{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:6px}
   .synclive{margin-left:auto; align-self:center}
+  .ideaback{position:fixed; inset:0; z-index:100; background:rgba(5,3,10,.72);
+    display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 16px}
+  .ideamodal{width:min(760px,96vw); background:#160b1e; border:1px solid rgba(255,255,255,.12);
+    border-radius:16px; padding:24px 26px; box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .ideahead{display:flex; align-items:center; justify-content:space-between; margin:0 0 14px}
+  .ideahead h2{margin:0; font-size:20px}
+  .ideagrid{display:grid; grid-template-columns:1fr 260px; gap:16px}
+  @media (max-width:640px){.ideagrid{grid-template-columns:1fr}}
+  .ideamodal .idea-text{min-height:150px}
+  .tweakrow{display:flex; gap:8px; margin:10px 0}
+  .tweakrow input{flex:1}
+  .ideashot{background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:10px;
+    padding:12px; margin-bottom:10px}
+  .ideashot .shead{display:flex; gap:8px; align-items:center; margin-bottom:8px}
+  .ideashot .shead input{flex:1; font-weight:600}
+  .ideashot textarea{min-height:64px; margin-bottom:6px}
+  .ideashot label{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold)}
+  .pendingbox{display:flex; align-items:center; justify-content:center; text-align:center;
+    aspect-ratio:9/16; max-height:420px; background:#0e0a12; border:1px dashed rgba(255,255,255,.18);
+    border-radius:10px; color:#b8adc4; font-size:13px; padding:16px}
   .userchip{margin-left:auto; align-self:center; display:flex; align-items:center; gap:9px;
     font-size:13px; color:var(--cream); background:rgba(255,255,255,.05);
     border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:5px 12px 5px 6px}
@@ -227,6 +247,49 @@
     <div class="userchip" id="userchip" style="display:none"></div>
   </header>
 
+  <div class="ideaback" id="ideaback" style="display:none" onclick="if(event.target===this)closeIdea()">
+    <div class="ideamodal">
+      <div class="ideahead">
+        <h2>✨ New project — idea generator</h2>
+        <button class="btn-ghost btn-sm" onclick="closeIdea()">✕</button>
+      </div>
+      <div class="field"><label>Project name</label>
+        <input type="text" id="idea-name" placeholder="e.g. PLÜR — Launch Teaser"></div>
+      <div class="ideagrid">
+        <div class="field"><label>Describe the idea</label>
+          <textarea id="idea-prompt" placeholder="What's the video about? Product, angle, vibe…"></textarea></div>
+        <div>
+          <div class="field"><label>Reference URL (optional)</label>
+            <input type="text" id="idea-url" placeholder="https://… pull info to influence the idea"></div>
+          <div class="field"><label>Target length</label>
+            <select id="idea-len">
+              <option value="15">15s</option><option value="30" selected>30s</option>
+              <option value="45">45s</option><option value="60">60s</option><option value="90">90s</option>
+            </select></div>
+        </div>
+      </div>
+      <button class="btn-magenta" id="idea-gen" onclick="ideaGenerate()">✨ Generate idea</button>
+
+      <div id="idea-result" style="display:none">
+        <div class="split"></div>
+        <div class="field"><label>The idea (edit freely)</label>
+          <textarea id="idea-text" class="idea-text"></textarea></div>
+        <div class=" tweakrow">
+          <input type="text" id="idea-tweak" placeholder="Tweak it: 'punchier hook', 'add a lab scene'…">
+          <button class="btn-ghost btn-sm" onclick="ideaTweak()">↻ Tweak</button>
+        </div>
+        <button class="btn-cyan" id="idea-toshots" onclick="ideaShots()">Apply → shot list ⟶</button>
+      </div>
+
+      <div id="idea-shotswrap" style="display:none">
+        <div class="split"></div>
+        <div class="hint" style="margin-bottom:10px">Each shot is prefilled with a visual prompt and a voiceover line — edit before creating, then generate each shot from its card.</div>
+        <div id="idea-shots"></div>
+        <button class="btn-magenta" id="idea-create" onclick="ideaCreate()">Create project with these shots ✓</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tabs" id="tabs"></div>
   <div class="eyebrow" id="eyebrow">—</div>
   <div class="toolbar">
@@ -363,10 +426,107 @@ function selectProject(id){
 }
 
 async function newProject(){
+  if(GLOBAL_LLM){ openIdea(); return; }
+  // Fallback when no LLM key is configured: plain blank project.
   const name = prompt('New project name:');
   if(!name) return;
   const r = await postJSON('/api/new-project', {name});
   if(r.ok){ currentProject = r.id; await loadProjects(); loadProjectData(); flash('Project created'); }
+  else flash('Error: '+(r.error||'?'));
+}
+
+/* ---------- idea generator ---------- */
+let IDEA_SHOTS = [];
+function openIdea(){
+  IDEA_SHOTS = [];
+  document.getElementById('idea-name').value = '';
+  document.getElementById('idea-prompt').value = '';
+  document.getElementById('idea-url').value = '';
+  document.getElementById('idea-text').value = '';
+  document.getElementById('idea-tweak').value = '';
+  document.getElementById('idea-result').style.display = 'none';
+  document.getElementById('idea-shotswrap').style.display = 'none';
+  document.getElementById('ideaback').style.display = 'flex';
+}
+function closeIdea(){ document.getElementById('ideaback').style.display = 'none'; }
+
+function ideaBusy(btn, on, label){
+  btn.disabled = on;
+  if(on){ btn.dataset.label = btn.textContent; btn.textContent = '⏳ '+label; }
+  else if(btn.dataset.label){ btn.textContent = btn.dataset.label; }
+}
+
+async function ideaGenerate(){
+  const prompt = document.getElementById('idea-prompt').value.trim();
+  if(!prompt){ flash('Describe the idea first'); return; }
+  const btn = document.getElementById('idea-gen');
+  ideaBusy(btn, true, 'Thinking…'); flash('Generating idea…');
+  const r = await postJSON('/api/idea/generate', {
+    prompt, url: document.getElementById('idea-url').value.trim(),
+    target_len: document.getElementById('idea-len').value,
+  });
+  ideaBusy(btn, false);
+  if(r.ok){
+    document.getElementById('idea-text').value = r.idea;
+    document.getElementById('idea-result').style.display = 'block';
+  } else flash('Error: '+(r.error||'?'));
+}
+
+async function ideaTweak(){
+  const cur = document.getElementById('idea-text').value.trim();
+  const tweak = document.getElementById('idea-tweak').value.trim();
+  if(!cur || !tweak){ flash('Enter a tweak instruction'); return; }
+  flash('Revising idea…');
+  const r = await postJSON('/api/idea/generate', {
+    current_idea: cur, tweak, target_len: document.getElementById('idea-len').value,
+    url: document.getElementById('idea-url').value.trim(),
+  });
+  if(r.ok){ document.getElementById('idea-text').value = r.idea;
+    document.getElementById('idea-tweak').value = ''; }
+  else flash('Error: '+(r.error||'?'));
+}
+
+async function ideaShots(){
+  const idea = document.getElementById('idea-text').value.trim();
+  if(!idea){ flash('Generate an idea first'); return; }
+  const btn = document.getElementById('idea-toshots');
+  ideaBusy(btn, true, 'Building shot list…'); flash('Breaking idea into shots…');
+  const r = await postJSON('/api/idea/shots', {idea, target_len: document.getElementById('idea-len').value});
+  ideaBusy(btn, false);
+  if(!r.ok){ flash('Error: '+(r.error||'?')); return; }
+  IDEA_SHOTS = r.shots;
+  const wrap = document.getElementById('idea-shots');
+  wrap.innerHTML = r.shots.map((s,i)=>`
+    <div class="ideashot">
+      <div class="shead"><span class="badge">Shot ${i+1}</span>
+        <input type="text" id="ish-title-${i}" value="${esc(s.title||'')}">
+        <span class="badge">${parseInt(s.duration)||8}s</span></div>
+      <label>Visual prompt</label>
+      <textarea id="ish-vp-${i}">${esc(s.visual_prompt||'')}</textarea>
+      <label>Voiceover</label>
+      <textarea id="ish-vo-${i}">${esc(s.vo_text||'')}</textarea>
+    </div>`).join('');
+  document.getElementById('idea-shotswrap').style.display = 'block';
+}
+
+async function ideaCreate(){
+  const name = document.getElementById('idea-name').value.trim();
+  if(!name){ flash('Give the project a name'); return; }
+  if(!IDEA_SHOTS.length){ flash('No shots yet'); return; }
+  const shots = IDEA_SHOTS.map((s,i)=>({
+    title: document.getElementById('ish-title-'+i).value,
+    visual_prompt: document.getElementById('ish-vp-'+i).value,
+    vo_text: document.getElementById('ish-vo-'+i).value,
+    duration: parseInt(s.duration)||8,
+  }));
+  const btn = document.getElementById('idea-create');
+  ideaBusy(btn, true, 'Creating…');
+  const r = await postJSON('/api/new-project-from-idea', {
+    name, shots, idea: document.getElementById('idea-text').value.trim(),
+  });
+  ideaBusy(btn, false);
+  if(r.ok){ closeIdea(); currentProject = r.id; await loadProjects(); loadProjectData();
+    flash(`Created “${name}” with ${r.shots} prefilled shots`); }
   else flash('Error: '+(r.error||'?'));
 }
 
@@ -441,7 +601,9 @@ async function loadScenes(){
           ${authorBadge(s.video_author,'🎬')}
         </div>
         <div class="vidwrap">
-          <video id="vid-${s.id}" controls preload="metadata" poster="${assetUrl(s.thumb)}" src="${assetUrl(s.video)}"></video>
+          ${s.pending
+            ? `<div class="pendingbox">Not generated yet — edit the prompt below, then “Re-submit visual ⟲” to generate this shot.</div>`
+            : `<video id="vid-${s.id}" controls preload="metadata" poster="${assetUrl(s.thumb)}" src="${assetUrl(s.video)}"></video>`}
           <span class="newbadge" id="vidnew-${s.id}" style="display:none">✦ NEW</span>
         </div>
         <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
@@ -1298,6 +1460,7 @@ async function setVoice(){
 
 /* ---------- init ---------- */
 let GLOBAL_USER = null;
+let GLOBAL_LLM = false;
 function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function authorBadge(name, icon){
   return name ? `<span class="author" title="Created by ${esc(name)}">${icon} ${esc(name)}</span>` : '';
@@ -1306,6 +1469,7 @@ async function loadMe(){
   try{
     const r = await (await fetch('/api/me')).json();
     // Show the "Sync Cloud → Claude" button only on the local dashboard.
+    GLOBAL_LLM = !!r.llm;
     const sync = document.getElementById('synclive');
     if(sync && r.local){ sync.style.display = 'inline-flex'; }
     if(!r.auth) return;                 // sign-in not configured (local/interim) — hide chip

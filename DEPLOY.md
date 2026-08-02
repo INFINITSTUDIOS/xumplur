@@ -50,6 +50,8 @@ subdomain (e.g. `dashboard.xumplur.com`) is pointed at it via DNS.
 | `PORT` | *(leave unset)* | Kinsta injects it; the app reads it |
 | `DATA_DIR` | `/data` | persistent disk mount (already in Dockerfile; must match the disk's mount path) |
 | `HF_KEY` | `your-key:your-secret` | Higgsfield Cloud API credential (mark as secret) |
+| `ANTHROPIC_API_KEY` | from console.anthropic.com | enables the ✨ idea generator on new-project (mark as secret; ~cents per idea). Omit to hide the feature. |
+| `ANTHROPIC_MODEL` | *(optional)* | overrides the idea-generator model; defaults to `claude-sonnet-5` |
 | `GOOGLE_CLIENT_ID` | from Google Cloud (see below) | enables Google sign-in |
 | `GOOGLE_CLIENT_SECRET` | from Google Cloud (mark as secret) | enables Google sign-in |
 | `GOOGLE_ALLOWED_DOMAINS` | `xumplur.com,infinitstudios.com,illusiaagency.com` | only these Workspace domains may sign in |

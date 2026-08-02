@@ -195,6 +195,60 @@ IS_LOCAL = (DATA_ROOT == ROOT)
 LIVE_URL = os.environ.get("LIVE_URL", "https://xumplur-create-7xdlj.sevalla.app")
 PULL_SCRIPT = os.path.join(ROOT, "pull_from_live.py")
 
+# --- Idea generator (Claude API) -------------------------------------------
+# Turns a brief (+ optional URL + target length) into an idea and a shot list.
+# Active only when ANTHROPIC_API_KEY is set. Sonnet 5 is the cost-effective default.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5").strip()
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+LLM_ENABLED = bool(ANTHROPIC_API_KEY)
+
+
+def _anthropic(system, user_text, max_tokens=2000, schema=None):
+    """Call the Claude Messages API (raw HTTP). Returns the first text block, or
+    parsed JSON when a schema is given. Raises RuntimeError on refusal/error."""
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    body = {"model": ANTHROPIC_MODEL, "max_tokens": max_tokens,
+            "system": system, "messages": [{"role": "user", "content": user_text}]}
+    if schema is not None:
+        body["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
+    req = _urlreq.Request(ANTHROPIC_URL, data=json.dumps(body).encode(),
+                          headers={"content-type": "application/json",
+                                   "x-api-key": ANTHROPIC_API_KEY,
+                                   "anthropic-version": "2023-06-01"})
+    try:
+        with _urlreq.urlopen(req, timeout=120) as r:
+            data = json.loads(r.read().decode())
+    except _urlreq.HTTPError as e:
+        detail = e.read().decode(errors="replace")[:300]
+        raise RuntimeError(f"Claude API {e.code}: {detail}")
+    if data.get("stop_reason") == "refusal":
+        raise RuntimeError("Claude declined this request (safety refusal).")
+    text = next((b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"), "")
+    if not text:
+        raise RuntimeError("empty response from Claude")
+    return json.loads(text) if schema is not None else text
+
+
+def _fetch_url_text(url, limit=6000):
+    """Fetch a URL and return a rough plaintext extract to feed the model as context."""
+    if not url:
+        return ""
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    try:
+        req = _urlreq.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; PLURbot/1.0)"})
+        with _urlreq.urlopen(req, timeout=25) as r:
+            raw = r.read(2_000_000).decode(errors="replace")
+    except Exception as e:
+        return f"(could not fetch {url}: {str(e)[:80]})"
+    raw = re.sub(r"(?is)<(script|style|noscript)[^>]*>.*?</\1>", " ", raw)
+    text = re.sub(r"(?s)<[^>]+>", " ", raw)
+    text = re.sub(r"&[a-zA-Z#0-9]+;", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:limit]
+
 CTYPES = {
     ".html": "text/html; charset=utf-8", ".js": "application/javascript",
     ".css": "text/css", ".json": "application/json",
@@ -514,7 +568,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/me":
             return self._send(200, {"user": self.current_user, "auth": AUTH_ENABLED,
                                     "password": PASSWORD_ENABLED, "local": IS_LOCAL,
-                                    "live_url": LIVE_URL})
+                                    "live_url": LIVE_URL, "llm": LLM_ENABLED})
         if path in ("/", "/index.html"):
             with open(os.path.join(ROOT, "dashboard.html"), "rb") as f:
                 return self._send(200, f.read(), CTYPES[".html"])
@@ -639,6 +693,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_revert_history(data)
         if route == "/api/sync-from-live":
             return self.handle_sync_from_live(data)
+        if route == "/api/idea/generate":
+            return self.handle_idea_generate(data)
+        if route == "/api/idea/shots":
+            return self.handle_idea_shots(data)
+        if route == "/api/new-project-from-idea":
+            return self.handle_new_project_from_idea(data)
         if route == "/api/add-clip":
             return self.handle_add_clip(data)
         if route == "/api/delete":
@@ -1254,6 +1314,117 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "nothing to change"})
         save_json(CONFIG, cfg)
         return self._send(200, {"ok": True, "changed": changed})
+
+    IDEA_SYSTEM = (
+        "You are a creative director for short-form vertical (9:16) product videos in the style of "
+        "high-energy, neon, cinematic social ads. Given a brief, optional reference material, and a "
+        "target length, produce a tight, vivid concept. Keep it concrete and shootable. "
+        "Audio is sound-effects only — never music."
+    )
+
+    def handle_idea_generate(self, data):
+        if not LLM_ENABLED:
+            return self._send(400, {"error": "Idea generator needs ANTHROPIC_API_KEY set."})
+        prompt = (data.get("prompt") or "").strip()
+        current = (data.get("current_idea") or "").strip()
+        tweak = (data.get("tweak") or "").strip()
+        if not prompt and not current:
+            return self._send(400, {"error": "describe an idea to generate"})
+        try:
+            target = int(data.get("target_len") or 30)
+        except (TypeError, ValueError):
+            target = 30
+        url_text = _fetch_url_text(data.get("url") or "")
+        if current and tweak:
+            user = (f"Here is the current video idea:\n\n{current}\n\n"
+                    f"Revise it per this instruction: {tweak}\n\n"
+                    f"Target length ~{target}s. Return the full revised idea only.")
+        else:
+            user = (f"Brief: {prompt}\n\nTarget length: ~{target} seconds of finished video.\n"
+                    + (f"\nReference material to draw on:\n{url_text}\n" if url_text else "")
+                    + "\nWrite the video concept: a one-line hook, then 3-6 sentences describing the "
+                    "story/visual arc and tone. Return the concept only — no headings or preamble.")
+        try:
+            idea = _anthropic(self.IDEA_SYSTEM, user, max_tokens=1200)
+        except Exception as e:
+            return self._send(502, {"error": str(e)[:300]})
+        return self._send(200, {"ok": True, "idea": idea.strip()})
+
+    def handle_idea_shots(self, data):
+        if not LLM_ENABLED:
+            return self._send(400, {"error": "Idea generator needs ANTHROPIC_API_KEY set."})
+        idea = (data.get("idea") or "").strip()
+        if not idea:
+            return self._send(400, {"error": "no idea to break into shots"})
+        try:
+            target = int(data.get("target_len") or 30)
+        except (TypeError, ValueError):
+            target = 30
+        schema = {
+            "type": "object", "additionalProperties": False, "required": ["shots"],
+            "properties": {"shots": {"type": "array", "items": {
+                "type": "object", "additionalProperties": False,
+                "required": ["title", "visual_prompt", "vo_text", "duration"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "visual_prompt": {"type": "string"},
+                    "vo_text": {"type": "string"},
+                    "duration": {"type": "integer", "enum": [5, 6, 8, 10, 12, 15]},
+                }}}},
+        }
+        user = (f"Break this concept into a shot list for a ~{target}s 9:16 video.\n\nConcept:\n{idea}\n\n"
+                "For each shot give: a short title; a detailed visual_prompt suitable for an image-to-video "
+                "model (subject, motion, camera, lighting, color); vo_text (one or two spoken sentences of "
+                "authoritative male narration); and a duration in seconds. The shot durations should sum to "
+                f"roughly {target}s. Aim for {max(3, min(8, round(target/6)))} shots.")
+        try:
+            out = _anthropic(self.IDEA_SYSTEM, user, max_tokens=3000, schema=schema)
+        except Exception as e:
+            return self._send(502, {"error": str(e)[:300]})
+        shots = out.get("shots") if isinstance(out, dict) else None
+        if not shots:
+            return self._send(502, {"error": "no shots returned"})
+        return self._send(200, {"ok": True, "shots": shots})
+
+    def handle_new_project_from_idea(self, data):
+        name = (data.get("name") or "").strip()
+        shots = data.get("shots") or []
+        if not name:
+            return self._send(400, {"error": "project name required"})
+        if not isinstance(shots, list) or not shots:
+            return self._send(400, {"error": "no shots provided"})
+        ps = projects()
+        pid = slugify(name)
+        if any(p["id"] == pid for p in ps):
+            pid = pid + "-" + uuid.uuid4().hex[:4]
+        for sub in ("assets/videos", "assets/audio", "assets/thumbs", "assets/refs",
+                    "assets/_history", "uploads"):
+            os.makedirs(os.path.join(pdir(pid), sub), exist_ok=True)
+        author = self._author()
+        scenes = []
+        for i, s in enumerate(shots, start=1):
+            try:
+                dur = int(s.get("duration") or 8)
+            except (TypeError, ValueError):
+                dur = 8
+            scenes.append({
+                "id": i, "title": (s.get("title") or f"Shot {i}").strip(),
+                "type": "motion-graphic", "duration": dur,
+                "video": f"assets/videos/scene{i}.mp4", "thumb": f"assets/thumbs/scene{i}.jpg",
+                "ref_image": None, "storyboard": "", "camera": "",
+                "visual_prompt": (s.get("visual_prompt") or "").strip(),
+                "vo_text": (s.get("vo_text") or "").strip(),
+                "vo_audio": f"assets/audio/scene{i}.wav", "soul_id": None,
+                "pending": True, "video_author": author, "vo_author": author,
+            })
+        save_json(scenes_path(pid), scenes)
+        open(queue_path(pid), "w").close()
+        if data.get("idea"):
+            save_json(os.path.join(pdir(pid), "idea.json"),
+                      {"idea": data["idea"], "created": time.strftime("%Y-%m-%d %H:%M")})
+        ps.append({"id": pid, "name": name})
+        save_json(PROJECTS_JSON, ps)
+        return self._send(200, {"ok": True, "id": pid, "name": name, "shots": len(scenes)})
 
     def handle_new_project(self, data):
         name = (data.get("name") or "").strip()
