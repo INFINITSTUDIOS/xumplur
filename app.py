@@ -133,6 +133,61 @@ def domain_allowed(claims):
     return (hd in GOOGLE_ALLOWED_DOMAINS) or (dom in GOOGLE_ALLOWED_DOMAINS)
 
 
+# --- Simple password gate (server-side form login) -------------------------
+# Used when Google sign-in is NOT configured. The password comes from env
+# DASH_PASSWORD (plaintext) or a sha256 hash in auth.json committed to the repo
+# (so it deploys via git push — no Kinsta env var needed). auth.json lives under
+# ROOT (the image), never the persistent volume, so a pushed change always applies.
+def _load_password_hash():
+    env = os.environ.get("DASH_PASSWORD")
+    if env:
+        return hashlib.sha256(env.encode()).hexdigest()
+    try:
+        with open(os.path.join(ROOT, "auth.json"), encoding="utf-8") as f:
+            return (json.load(f).get("password_sha256") or "").strip() or None
+    except Exception:
+        return None
+
+
+PASSWORD_HASH = _load_password_hash()
+PASSWORD_ENABLED = bool(PASSWORD_HASH) and not AUTH_ENABLED
+
+LOGIN_PAGE = """<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PLÜR — Sign in</title><style>
+:root{color-scheme:dark}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+ background:#0a0510;color:#f5efe6;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+.card{width:min(360px,90vw);background:#160b1e;border:1px solid rgba(255,255,255,.1);
+ border-radius:16px;padding:34px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.brand{font-weight:800;font-size:26px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 4px}
+.brand .m{color:#ff2d9b}.brand .c{color:#22d3ee}
+p{color:#b8adc4;font-size:13px;margin:0 0 22px}
+input{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;
+ border:1px solid rgba(255,255,255,.16);background:#0e0715;color:#f5efe6;font-size:15px}
+button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;cursor:pointer;
+ background:#ff2d9b;color:#1a0010;font-weight:700;font-size:15px}
+button:hover{filter:brightness(1.08)}
+.err{color:#ff6b8b;font-size:13px;margin-top:12px;min-height:16px}
+</style></head><body>
+<form class="card" onsubmit="return go(event)">
+ <div class="brand">PL<span class="m">Ü</span>R <span class="c">·</span> Dashboard</div>
+ <p>Enter the team password to continue.</p>
+ <input id="pw" type="password" placeholder="Password" autofocus autocomplete="current-password">
+ <button type="submit">Sign in</button>
+ <div class="err" id="err"></div>
+</form>
+<script>
+async function go(e){e.preventDefault();
+ const pw=document.getElementById('pw').value;
+ const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({password:pw})});
+ if(r.ok){location.href='/';}
+ else{document.getElementById('err').textContent='Incorrect password.';
+   document.getElementById('pw').value='';document.getElementById('pw').focus();}
+ return false;}
+</script></body></html>"""
+
 RUN = {}  # project_id -> Popen
 
 CTYPES = {
@@ -327,6 +382,11 @@ class Handler(BaseHTTPRequestHandler):
         proto = self.headers.get("X-Forwarded-Proto") or ("http" if local else "https")
         return f"{proto}://{host}"
 
+    def _secure_attr(self):
+        """Add 'Secure;' to cookies except on localhost (so http dev testing still works)."""
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+        return "" if (host.startswith("localhost") or host.startswith("127.")) else " Secure;"
+
     def _author(self):
         u = self.current_user or {}
         return u.get("name") or u.get("email") or None
@@ -347,24 +407,34 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._redirect("/auth/login")
             return False
-        # fallback: optional HTTP Basic gate (interim, until Google sign-in is configured)
-        pw = os.environ.get("DASH_PASSWORD")
-        if not pw:
-            return True
-        user = os.environ.get("DASH_USER", "team")
-        hdr = self.headers.get("Authorization", "")
-        if hdr.startswith("Basic "):
-            try:
-                u, p = base64.b64decode(hdr[6:]).decode("utf-8").split(":", 1)
-                if u == user and p == pw:
-                    return True
-            except Exception:
-                pass
-        self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="PLUR Dashboard"')
-        self.send_header("Content-Length", "0")
+        # fallback: simple server-side password gate (form login + session cookie)
+        if PASSWORD_ENABLED:
+            if path == "/login":
+                return True
+            if self._read_session():
+                return True
+            if path.startswith("/api/"):
+                self._send(401, {"error": "login required", "login": "/login"})
+            else:
+                self._redirect("/login")
+            return False
+        return True   # no auth configured → open
+
+    def handle_login_submit(self, data):
+        pw = data.get("password") or ""
+        ok = PASSWORD_HASH and hmac.compare_digest(
+            hashlib.sha256(pw.encode()).hexdigest(), PASSWORD_HASH)
+        if not ok:
+            return self._send(401, {"ok": False, "error": "wrong password"})
+        tok = make_session_token({"name": "", "email": ""})
+        ck = f"plur_session={tok}; HttpOnly;{self._secure_attr()} SameSite=Lax; Path=/; Max-Age={SESSION_MAX_AGE}"
+        body = b'{"ok":true}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Set-Cookie", ck)
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        return False
+        self.wfile.write(body)
 
     def handle_auth(self, path):
         if path == "/auth/login":
@@ -432,8 +502,13 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path.startswith("/auth/"):
             return self.handle_auth(path)
+        if path == "/login":
+            return self._send(200, LOGIN_PAGE, CTYPES[".html"])
+        if path == "/logout":
+            return self._redirect("/login", ["plur_session=; Max-Age=0; Path=/"])
         if path == "/api/me":
-            return self._send(200, {"user": self.current_user, "auth": AUTH_ENABLED})
+            return self._send(200, {"user": self.current_user,
+                                    "auth": AUTH_ENABLED, "password": PASSWORD_ENABLED})
         if path in ("/", "/index.html"):
             with open(os.path.join(ROOT, "dashboard.html"), "rb") as f:
                 return self._send(200, f.read(), CTYPES[".html"])
@@ -544,6 +619,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "invalid json"})
 
         route = self.path.split("?", 1)[0]
+        if route == "/login":
+            return self.handle_login_submit(data)
         if route == "/api/resubmit":
             return self.handle_resubmit(data)
         if route == "/api/upload-vo":

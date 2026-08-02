@@ -54,7 +54,18 @@ subdomain (e.g. `dashboard.xumplur.com`) is pointed at it via DNS.
 | `GOOGLE_CLIENT_SECRET` | from Google Cloud (mark as secret) | enables Google sign-in |
 | `GOOGLE_ALLOWED_DOMAINS` | `xumplur.com,infinitstudios.com,illusiaagency.com` | only these Workspace domains may sign in |
 | `SESSION_SECRET` | a 64-char random hex (mark as secret) | signs login cookies; set once and keep stable |
-| `DASH_USER` / `DASH_PASSWORD` | *(interim only)* | HTTP Basic gate used **only when Google isn't configured**; ignored once `GOOGLE_CLIENT_ID`+`GOOGLE_CLIENT_SECRET` are set |
+| `DASH_PASSWORD` | *(optional)* | Simple shared-password gate (form login). Overrides the hash in `auth.json`. Ignored once Google sign-in is configured. |
+
+### Simple password gate (no Kinsta env var needed)
+When Google sign-in is **not** configured, the app shows a styled **login page** and requires a shared
+password before anything loads (the API is gated too, so nobody can generate via the browser or the API
+without it). The password is stored as a **sha256 hash in `auth.json`** (committed to the repo), so you set
+or change it by editing that file and pushing — no Kinsta env var required. To change it:
+```bash
+python3 -c "import hashlib,json; json.dump({'password_sha256':hashlib.sha256(b'YOUR_NEW_PW').hexdigest()}, open('auth.json','w'), indent=2)"
+git commit -am "update dashboard password" && git push   # Kinsta redeploys
+```
+(Setting `DASH_PASSWORD` in the env overrides the file, if you ever prefer that.)
 
 ## Google sign-in setup (per-user login + authorship)
 When `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` are set, the app requires Google sign-in and only lets
