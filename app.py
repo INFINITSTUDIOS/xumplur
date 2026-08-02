@@ -35,12 +35,14 @@ except Exception:
 
 PORT = int(os.environ.get("PORT", 8756))  # honor launcher-assigned port; fall back to 8756
 
-# DATA_DIR points project data at a persistent volume in the cloud; defaults to ROOT locally.
+# DATA_DIR points *user data* (projects) at a persistent volume in the cloud; defaults to ROOT locally.
+# App config (config.json, catalog.json) always comes from ROOT (the image) so repo changes to the
+# model/voice lists take effect on every deploy — they are NOT stored on the persistent volume.
 DATA_ROOT = os.environ.get("DATA_DIR") or ROOT
 PROJECTS_DIR = os.path.join(DATA_ROOT, "projects")
 PROJECTS_JSON = os.path.join(DATA_ROOT, "projects.json")
-CONFIG = os.path.join(DATA_ROOT, "config.json")
-CATALOG = os.path.join(DATA_ROOT, "catalog.json")
+CONFIG = os.path.join(ROOT, "config.json")
+CATALOG = os.path.join(ROOT, "catalog.json")
 RUNNER = os.path.join(ROOT, "higgsfield_runner.py")
 
 # runner interpreter: local venv if present, else the current interpreter (container has the SDK system-wide)
@@ -58,9 +60,7 @@ def _seed_data_dir():
         shutil.copy2(os.path.join(ROOT, "projects.json"), PROJECTS_JSON)
     if not os.path.isdir(PROJECTS_DIR) and os.path.isdir(os.path.join(ROOT, "projects")):
         shutil.copytree(os.path.join(ROOT, "projects"), PROJECTS_DIR)
-    for f in ("config.json", "catalog.json"):
-        if not os.path.exists(os.path.join(DATA_ROOT, f)) and os.path.exists(os.path.join(ROOT, f)):
-            shutil.copy2(os.path.join(ROOT, f), os.path.join(DATA_ROOT, f))
+    # config.json / catalog.json intentionally NOT seeded — they are read from ROOT (the image).
 
 
 _seed_data_dir()
@@ -1174,6 +1174,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": f"unknown video_key {vkey}"})
             cfg["video"]["image_to_video_model_id"] = m["image_to_video_model_id"]
             cfg["video"]["text_to_video_model_id"] = m["text_to_video_model_id"]
+            cfg["video"]["via"] = m.get("via", "cloud")
+            cfg["video"]["mcp_model_id"] = m.get("mcp_model_id", "")
             changed.append(f"video → {m['label']}")
         if data.get("voice_id"):
             cfg["audio"]["voice_id"] = data["voice_id"]

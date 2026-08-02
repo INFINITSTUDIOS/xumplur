@@ -1,10 +1,12 @@
 {
   "_note": "Options for the dashboard dropdowns. video_models: image_to_video_model_id values are confirmed from Higgsfield docs; text_to_video_model_id is a best-effort guess per family (confirm in cloud.higgsfield.ai/explore). voices: preset voice_ids from Higgsfield.",
+  "_video_note": "via=cloud → renders standalone via the ⚡ button (cloud REST API, no Claude). via=mcp → Seedance 2.0 etc. are only on the Higgsfield MCP, so those render through Claude ('run the queue'); the standalone engine defers them. mcp_model_id is the MCP model slug used by Claude.",
   "video_models": [
-    { "key": "kling-2.1-pro", "label": "Kling 2.1 Pro", "image_to_video_model_id": "kling-video/v2.1/pro/image-to-video", "text_to_video_model_id": "kling-video/v2.1/master/text-to-video" },
-    { "key": "seedance-1-pro", "label": "Seedance 1.0 Pro", "image_to_video_model_id": "bytedance/seedance/v1/pro/image-to-video", "text_to_video_model_id": "bytedance/seedance/v1/pro/text-to-video" },
-    { "key": "dop-standard", "label": "Higgsfield DoP (Standard)", "image_to_video_model_id": "higgsfield-ai/dop/standard", "text_to_video_model_id": "higgsfield-ai/dop/standard" },
-    { "key": "dop-preview", "label": "Higgsfield DoP (Preview)", "image_to_video_model_id": "higgsfield-ai/dop/preview", "text_to_video_model_id": "higgsfield-ai/dop/preview" }
+    { "key": "kling-2.1-pro", "label": "Kling 2.1 Pro (standalone)", "via": "cloud", "image_to_video_model_id": "kling-video/v2.1/pro/image-to-video", "text_to_video_model_id": "kling-video/v2.1/master/text-to-video" },
+    { "key": "dop-standard", "label": "Higgsfield DoP (standalone)", "via": "cloud", "image_to_video_model_id": "higgsfield-ai/dop/standard", "text_to_video_model_id": "higgsfield-ai/dop/standard" },
+    { "key": "dop-preview", "label": "Higgsfield DoP Preview (standalone)", "via": "cloud", "image_to_video_model_id": "higgsfield-ai/dop/preview", "text_to_video_model_id": "higgsfield-ai/dop/preview" },
+    { "key": "seedance-2-0", "label": "Seedance 2.0 (via Claude)", "via": "mcp", "mcp_model_id": "seedance_2_0", "image_to_video_model_id": "seedance_2_0", "text_to_video_model_id": "seedance_2_0" },
+    { "key": "seedance-2-0-mini", "label": "Seedance 2.0 Mini (via Claude)", "via": "mcp", "mcp_model_id": "seedance_2_0_mini", "image_to_video_model_id": "seedance_2_0_mini", "text_to_video_model_id": "seedance_2_0_mini" }
   ],
   "voices": [
     { "voice_id": "dc382508-c8bd-443c-8cb2-46e57b8d2e6f", "name": "Sterling", "gender": "male" },

@@ -27,7 +27,7 @@ except Exception:
 import apply_result as ar  # noqa: E402  (reuse the finalizer)
 
 DATA_ROOT = os.environ.get("DATA_DIR") or ROOT   # persistent volume in cloud; ROOT locally
-CONFIG = os.path.join(DATA_ROOT, "config.json")
+CONFIG = os.path.join(ROOT, "config.json")       # app config from the image (see app.py note)
 PROJECTS_DIR = os.path.join(DATA_ROOT, "projects")
 
 _runlog = os.path.join(ROOT, "run.log")   # set per-project in run()
@@ -229,6 +229,12 @@ def run(pid):
     for e in items:
         try:
             log(f"SHOT {e['scene']} · {e['kind']} · {e['id']}")
+            if e["kind"] == "visual" and cfg["video"].get("via") == "mcp":
+                model = cfg["video"].get("mcp_model_id") or "the selected model"
+                log(f"  video model '{model}' runs on the Higgsfield MCP — not the cloud API.")
+                log("  → Left queued. Render it via Claude ('Copy queue for Claude' / run the queue),")
+                log("    or switch VIDEO MODEL to a '(standalone)' option to render it here.")
+                continue   # leave the item queued for Claude
             if e["kind"] == "visual":
                 generate_visual(client, cfg, e, pid)
                 # a new clip may carry a voiceover line to generate too

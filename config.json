@@ -1,8 +1,10 @@
 {
   "_note": "Higgsfield Cloud (platform.higgsfield.ai). submit(application=MODEL_ID_PATH, arguments={flat body}). Auth: HF_KEY='key:secret'. Reference image passed as image_url (string). Result: {'video':{'url':...}}. Model IDs are the URL paths from cloud.higgsfield.ai/explore. image_to_video below is confirmed from official docs; text_to_video + audio model IDs must be confirmed in the gallery.",
   "video": {
-    "image_to_video_model_id": "bytedance/seedance/v1/pro/image-to-video",
-    "text_to_video_model_id": "bytedance/seedance/v1/pro/text-to-video",
+    "via": "cloud",
+    "image_to_video_model_id": "kling-video/v2.1/pro/image-to-video",
+    "text_to_video_model_id": "kling-video/v2.1/master/text-to-video",
+    "mcp_model_id": "",
     "params": {
       "duration": 5
     },

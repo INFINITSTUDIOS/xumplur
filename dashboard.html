@@ -1234,9 +1234,14 @@ async function loadSettings(){
     vm.prepend(o);
   }
   const sel = s.catalog.video_models.find(m=>m.key===vm.value);
-  document.getElementById('videoHint').textContent = sel
-    ? `image→video: ${sel.image_to_video_model_id}  ·  text→video: ${sel.text_to_video_model_id}`
-    : 'Custom model set in config.json.';
+  const hint = document.getElementById('videoHint');
+  if(sel && sel.via === 'mcp'){
+    hint.innerHTML = `⚠ <b>Renders via Claude</b> (run the queue / “Copy queue for Claude”) — the ⚡ standalone button defers this model. MCP model: <code>${esc(sel.mcp_model_id||sel.image_to_video_model_id)}</code>`;
+  } else if(sel){
+    hint.textContent = `Standalone (⚡ button, no Claude) · image→video: ${sel.image_to_video_model_id}`;
+  } else {
+    hint.textContent = 'Custom model set in config.json.';
+  }
   const vc = document.getElementById('voice');
   vc.innerHTML = '';
   for(const g of ['male','female']){
