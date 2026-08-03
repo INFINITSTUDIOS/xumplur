@@ -81,17 +81,42 @@ def main():
         for g in old[:-3]:
             shutil.rmtree(g, ignore_errors=True)
 
-    # 4) extract over the local copy
+    # 4) extract over the local copy — but MERGE the project index, never clobber it.
+    #    (Overwriting projects.json wholesale would drop any project that exists only
+    #     locally and hasn't been pushed to the cloud yet — that is data loss.)
+    local_json = os.path.join(ROOT, "projects.json")
+    local_index = json.load(open(local_json)) if os.path.exists(local_json) else []
+    cloud_index = []
     with zipfile.ZipFile(tmp) as z:
         members = z.namelist()
         # safety: only allow projects/* and projects.json
         for m in members:
             if not (m == "projects.json" or m.startswith("projects/")) or ".." in m:
                 sys.exit(f"ERROR: unexpected entry in archive: {m}")
-        z.extractall(ROOT)
+        for m in members:
+            if m == "projects.json":
+                try:
+                    cloud_index = json.loads(z.read(m).decode("utf-8")) or []
+                except Exception:
+                    cloud_index = []
+                continue          # merged below, not extracted directly
+            z.extract(m, ROOT)
     os.remove(tmp)
-    projs = json.load(open(os.path.join(ROOT, "projects.json"))) if os.path.exists(os.path.join(ROOT, "projects.json")) else []
-    print(f"\nDone ✅  Synced {len(projs)} project(s) from {base} to local.")
+
+    # merge: cloud entries win on shared ids, but local-only projects are preserved
+    by_id = {p["id"]: p for p in cloud_index if p.get("id")}
+    kept_local = []
+    for p in local_index:
+        if p.get("id") and p["id"] not in by_id:
+            by_id[p["id"]] = p
+            kept_local.append(p["id"])
+    with open(local_json, "w", encoding="utf-8") as f:
+        json.dump(list(by_id.values()), f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    projs = list(by_id.values())
+    if kept_local:
+        print(f"  preserved local-only project(s) not on the cloud: {', '.join(kept_local)}")
+    print(f"\nDone ✅  Synced {len(cloud_index)} project(s) from {base}; {len(projs)} total locally.")
     print(f"Local backup kept at {os.path.basename(backup) if os.path.isdir(backup) else '(none)'}.")
     print("Refresh the local dashboard to see the pulled data.")
 

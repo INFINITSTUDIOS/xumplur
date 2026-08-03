@@ -675,14 +675,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._check_auth():
             return
+        route = self.path.split("?", 1)[0]
         length = int(self.headers.get("Content-Length", 0))
+        if route == "/api/import":
+            return self.handle_import(length)   # binary zip body, not JSON
         raw = self.rfile.read(length) if length else b"{}"
         try:
             data = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
             return self._send(400, {"error": "invalid json"})
 
-        route = self.path.split("?", 1)[0]
         if route == "/login":
             return self.handle_login_submit(data)
         if route == "/api/resubmit":
@@ -991,6 +993,78 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             with open(tmp.name, "rb") as f:
                 shutil.copyfileobj(f, self.wfile)
+        finally:
+            try:
+                os.remove(tmp.name)
+            except OSError:
+                pass
+
+    def handle_import(self, length):
+        """Accept a zip of project data (projects/<id>/... and an optional projects.json)
+        pushed from a local/other instance and merge it into this instance's DATA_ROOT.
+
+        ADDITIVE and non-destructive: incoming projects are added or overwritten, but existing
+        projects on this instance are never removed. Auth-gated like every POST route."""
+        import zipfile
+        import tempfile
+        if not length:
+            return self._send(400, {"error": "empty body"})
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        try:
+            remaining = length
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 1 << 20))
+                if not chunk:
+                    break
+                tmp.write(chunk)
+                remaining -= len(chunk)
+            tmp.close()
+            incoming_index = []
+            imported_pids = set()
+            with zipfile.ZipFile(tmp.name) as z:
+                members = z.namelist()
+                for m in members:                       # validate every entry before writing anything
+                    if ".." in m or m.startswith("/") or m.startswith("\\"):
+                        return self._send(400, {"error": f"unsafe entry: {m}"})
+                    if not (m == "projects.json" or m.startswith("projects/")):
+                        return self._send(400, {"error": f"unexpected entry: {m}"})
+                for m in members:
+                    if m == "projects.json":
+                        try:
+                            incoming_index = json.loads(z.read(m).decode("utf-8")) or []
+                        except Exception:
+                            incoming_index = []
+                        continue
+                    if m.endswith("/"):
+                        continue
+                    parts = m.split("/")
+                    if len(parts) >= 2 and parts[1]:
+                        imported_pids.add(parts[1])
+                    dest = os.path.join(DATA_ROOT, m)
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    with z.open(m) as src, open(dest, "wb") as out:
+                        shutil.copyfileobj(src, out)
+            # merge the project index — keep everything already here, add/update incoming
+            by_id = {p["id"]: p for p in projects() if p.get("id")}
+            added = []
+            for p in incoming_index:
+                pid = p.get("id")
+                if not pid:
+                    continue
+                if pid not in by_id:
+                    added.append(pid)
+                by_id[pid] = {**by_id.get(pid, {}), **p}
+            for pid in imported_pids:                    # fallback: register any pushed dir not in the index
+                if pid not in by_id:
+                    by_id[pid] = {"id": pid, "name": pid}
+                    added.append(pid)
+            save_json(PROJECTS_JSON, list(by_id.values()))
+            return self._send(200, {"ok": True, "imported": sorted(imported_pids),
+                                    "added": added, "projects": [p["id"] for p in by_id.values()]})
+        except zipfile.BadZipFile:
+            return self._send(400, {"error": "not a valid zip"})
+        except Exception as e:
+            return self._send(500, {"error": str(e)[:200]})
         finally:
             try:
                 os.remove(tmp.name)
