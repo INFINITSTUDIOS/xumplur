@@ -268,10 +268,13 @@ def check_credits():
         client = get_client()
     except SystemExit as e:
         print(json.dumps({"api": "no_key", "detail": str(e)[:120]})); return
-    v = cfg["video"]
+    # Probe a stable CLOUD model, not the configured default — the default video model is now
+    # an MCP model (Seedance 2.5) which the cloud REST API can't render, so probing it would
+    # always look "empty". This button reports the separate cloud-REST wallet.
+    probe_model = "kling-video/v2.1/master/text-to-video"
     try:
-        rc = client.submit(application=v["text_to_video_model_id"],
-                           arguments={v["prompt_arg"]: "probe", **v["params"]})
+        rc = client.submit(application=probe_model,
+                           arguments={"prompt": "probe", "duration": 5})
         try:
             rc.cancel()   # cancel while queued — no credits consumed
         except Exception:

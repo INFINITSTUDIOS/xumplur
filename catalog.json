@@ -3,6 +3,14 @@
   "_video_note": "via=cloud → renders standalone via the ⚡ button (cloud REST API, no Claude). via=mcp → Seedance 2.0 etc. are only on the Higgsfield MCP, so those render through Claude ('run the queue'); the standalone engine defers them. mcp_model_id is the MCP model slug used by Claude.",
   "video_models": [
     {
+      "key": "seedance-2-5",
+      "label": "Seedance 2.5 (via Claude) — default",
+      "via": "mcp",
+      "mcp_model_id": "seedance_2_5",
+      "image_to_video_model_id": "seedance_2_5",
+      "text_to_video_model_id": "seedance_2_5"
+    },
+    {
       "key": "kling-2.1-pro",
       "label": "Kling 2.1 Pro (standalone)",
       "via": "cloud",
