@@ -268,7 +268,13 @@
             </select></div>
         </div>
       </div>
-      <button class="btn-magenta" id="idea-gen" onclick="ideaGenerate()">✨ Generate idea</button>
+      <div class="hint" id="idea-llmhint" style="display:none;margin-bottom:8px">
+        AI idea generation is off — no <code>ANTHROPIC_API_KEY</code> is configured on this server. You can still create a project by name below and build its shots manually.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn-magenta" id="idea-gen" onclick="ideaGenerate()">✨ Generate idea</button>
+        <button class="btn-ghost btn-sm" id="idea-blank" onclick="createBlankProject()">＋ Create blank project</button>
+      </div>
 
       <div id="idea-result" style="display:none">
         <div class="split"></div>
@@ -428,13 +434,16 @@ function selectProject(id){
   loadProjectData();
 }
 
-async function newProject(){
-  if(GLOBAL_LLM){ openIdea(); return; }
-  // Fallback when no LLM key is configured: plain blank project.
-  const name = prompt('New project name:');
-  if(!name) return;
+function newProject(){ openIdea(); }   // always show the modal (works with or without an LLM key)
+
+async function createBlankProject(){
+  const name = (document.getElementById('idea-name').value || '').trim();
+  if(!name){ flash('Enter a project name first'); document.getElementById('idea-name').focus(); return; }
+  const btn = document.getElementById('idea-blank');
+  ideaBusy(btn, true, 'Creating…');
   const r = await postJSON('/api/new-project', {name});
-  if(r.ok){ currentProject = r.id; await loadProjects(); loadProjectData(); flash('Project created'); }
+  ideaBusy(btn, false);
+  if(r.ok){ currentProject = r.id; closeIdea(); await loadProjects(); loadProjectData(); flash('Project created'); }
   else flash('Error: '+(r.error||'?'));
 }
 
@@ -449,6 +458,11 @@ function openIdea(){
   document.getElementById('idea-tweak').value = '';
   document.getElementById('idea-result').style.display = 'none';
   document.getElementById('idea-shotswrap').style.display = 'none';
+  const gen = document.getElementById('idea-gen');
+  gen.disabled = !GLOBAL_LLM;
+  gen.style.opacity = GLOBAL_LLM ? '' : '.5';
+  gen.title = GLOBAL_LLM ? '' : 'Add ANTHROPIC_API_KEY to enable AI idea generation';
+  document.getElementById('idea-llmhint').style.display = GLOBAL_LLM ? 'none' : 'block';
   document.getElementById('ideaback').style.display = 'flex';
 }
 function closeIdea(){ document.getElementById('ideaback').style.display = 'none'; }
