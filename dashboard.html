@@ -83,6 +83,7 @@
     padding:10px 12px; font:14px inherit; min-width:260px; cursor:pointer}
   select:focus{outline:none; border-color:var(--magenta)}
   .hint{font-size:11px; color:var(--muted); margin-top:6px; max-width:320px; line-height:1.4}
+  .savehint{font-size:11px; color:var(--cyan); margin-left:8px; opacity:.85; font-weight:600}
   optgroup{color:var(--gold)}
 
   .card{display:grid; grid-template-columns:340px 1fr; gap:22px; background:linear-gradient(180deg,var(--panel),#0d0810);
@@ -636,8 +637,8 @@ async function loadScenes(){
       </div>
       <div class="edit">
         <div class="field">
-          <label>Visual prompt</label>
-          <textarea id="prompt-${s.id}">${s.visual_prompt||''}</textarea>
+          <label>Visual prompt <span class="savehint" id="save-vp-${s.id}"></span></label>
+          <textarea id="prompt-${s.id}" oninput="autosaveScene(${s.id},'visual_prompt',this.value,'save-vp-${s.id}')">${s.visual_prompt||''}</textarea>
         </div>
         <div class="field">
           <label>Character reference (optional) — embedded in the prompt as &lt;&lt;&lt;id&gt;&gt;&gt;</label>
@@ -645,12 +646,12 @@ async function loadScenes(){
             <select class="soulpick" id="soulpick-${s.id}" onchange="pickSoul(${s.id})">${soulOptions(s.soul_id)}</select>
             <img class="soulthumb" id="soulthumb-${s.id}" style="display:${s.soul_id ? 'block' : 'none'}" src="${soulThumb(s.soul_id) || ''}">
           </div>
-          <input type="text" class="soulinput" id="soul-${s.id}" placeholder="…or paste any Higgsfield Soul / Element ID" value="${s.soul_id || ''}">
+          <input type="text" class="soulinput" id="soul-${s.id}" placeholder="…or paste any Higgsfield Soul / Element ID" value="${s.soul_id || ''}" onchange="autosaveScene(${s.id},'soul_id',this.value)">
         </div>
         ${refBlock}
         <div class="field" style="max-width:200px">
           <label>Shot length (to generate)</label>
-          <select id="dur-${s.id}">${durationOptions(s.duration||8)}</select>
+          <select id="dur-${s.id}" onchange="autosaveScene(${s.id},'duration',this.value)">${durationOptions(s.duration||8)}</select>
         </div>
         <button class="btn-magenta" onclick="resubmit(${s.id},'visual')">Re-submit visual ⟲</button>
         <div class="split"></div>
@@ -663,7 +664,8 @@ async function loadScenes(){
             <div class="playhead" id="ph-${s.id}"></div>
             <audio id="aud-${s.id}" preload="none" src="${assetUrl(s.vo_audio)}"></audio>
           </div>
-          <textarea class="vo" id="vo-${s.id}" style="margin-top:10px">${s.vo_text||''}</textarea>
+          <textarea class="vo" id="vo-${s.id}" style="margin-top:10px" oninput="autosaveScene(${s.id},'vo_text',this.value,'save-vo-${s.id}')">${s.vo_text||''}</textarea>
+          <span class="savehint" id="save-vo-${s.id}"></span>
           <div class="voicerow">
             <label>Voice for this shot</label>
             <select class="voicepick" id="voicepick-${s.id}">${voiceOptions(s.voice_id)}</select>
@@ -855,6 +857,7 @@ function pickSoul(id){
   const thumb = document.getElementById('soulthumb-'+id);
   const src = sel.value ? (sel.selectedOptions[0].dataset.thumb || '') : '';
   if(src){ thumb.src = src; thumb.style.display = 'block'; } else { thumb.style.display = 'none'; }
+  autosaveScene(id, 'soul_id', sel.value);   // persist the character choice immediately
 }
 
 /* ---------- per-scene play (video + its VO) ---------- */
@@ -1215,6 +1218,26 @@ function pickFile(id){
 }
 
 /* ---------- queue actions ---------- */
+/* ---------- auto-save scene edits (prompt / vo text / soul / duration) ---------- */
+let _autosaveTimers = {};
+function autosaveScene(id, field, value, hintId){
+  const key = id + '-' + field;
+  if(hintId){ const h = document.getElementById(hintId); if(h) h.textContent = '…'; }
+  clearTimeout(_autosaveTimers[key]);
+  _autosaveTimers[key] = setTimeout(async () => {
+    const body = {scene:id};
+    body[field] = value;
+    const r = await postJSON('/api/update-scene', body);
+    const h = hintId && document.getElementById(hintId);
+    if(r && r.ok){
+      if(h){ h.textContent = '✓ saved'; setTimeout(()=>{ if(h.textContent==='✓ saved') h.textContent=''; }, 1800); }
+    } else {
+      if(h) h.textContent = '⚠ not saved';
+      flash('Could not save edit: ' + ((r&&r.error)||'?'));
+    }
+  }, 700);
+}
+
 async function resubmit(id, kind){
   const body = {scene:id, kind};
   if(kind === 'visual'){

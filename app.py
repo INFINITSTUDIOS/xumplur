@@ -689,6 +689,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_login_submit(data)
         if route == "/api/resubmit":
             return self.handle_resubmit(data)
+        if route == "/api/update-scene":
+            return self.handle_update_scene(data)
         if route == "/api/upload-vo":
             return self.handle_upload_vo(data)
         if route == "/api/revert-history":
@@ -844,6 +846,43 @@ class Handler(BaseHTTPRequestHandler):
         scenes = [s for s in scenes if s["id"] != sid]
         save_json(scenes_path(pid), scenes)
         return self._send(200, {"ok": True})
+
+    def handle_update_scene(self, data):
+        """Persist an in-place edit to a scene's text fields (prompt, voiceover text, title,
+        character/soul id, duration) WITHOUT generating anything. Used for auto-save."""
+        pid = self._proj_from(data)
+        if not pid:
+            return self._send(400, {"error": "unknown project"})
+        try:
+            sid = int(data.get("scene"))
+        except (TypeError, ValueError):
+            return self._send(400, {"error": "scene required"})
+        scenes = load_json(scenes_path(pid), [])
+        scene = next((s for s in scenes if s["id"] == sid), None)
+        if not scene:
+            return self._send(404, {"error": "scene not found"})
+        saved = []
+        for k in ("visual_prompt", "vo_text", "title"):
+            if k in data and isinstance(data[k], str):
+                scene[k] = data[k].strip()
+                saved.append(k)
+        if "soul_id" in data:
+            scene["soul_id"] = (str(data["soul_id"]).strip() or None) if data["soul_id"] is not None else None
+            saved.append("soul_id")
+        if "duration" in data:
+            try:
+                scene["duration"] = int(data["duration"])
+                saved.append("duration")
+            except (TypeError, ValueError):
+                pass
+        if not saved:
+            return self._send(400, {"error": "no editable fields provided"})
+        scene["edited"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        author = self._author()
+        if author:
+            scene["edited_by"] = author
+        save_json(scenes_path(pid), scenes)
+        return self._send(200, {"ok": True, "saved": saved})
 
     def _ffprobe(self, path, entries):
         try:
