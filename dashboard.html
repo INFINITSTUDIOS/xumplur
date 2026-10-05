@@ -103,12 +103,12 @@
     display:inline-flex; align-items:center; justify-content:center; padding:0}
   .nextbtn:hover{border-color:var(--cyan); color:var(--cyan)}
   .histtoggle{margin-top:8px}
-  .histpanel{margin-top:8px; display:flex; flex-direction:column; gap:12px;
-    max-height:560px; overflow-y:auto; padding:4px}
-  .histrow{display:flex; gap:14px; align-items:center; background:rgba(255,255,255,.04);
-    border:1px solid var(--line); border-radius:10px; padding:10px}
-  .histvid{position:relative; width:220px; flex:none}
-  .histmedia{width:220px; height:auto; display:block; border-radius:8px; background:#000}
+  .histpanel{margin-top:8px; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px;
+    max-height:620px; overflow-y:auto; padding:4px}
+  .histrow{display:flex; flex-direction:column; gap:8px; background:rgba(255,255,255,.04);
+    border:1px solid var(--line); border-radius:10px; padding:8px}
+  .histvid{position:relative; width:100%}
+  .histmedia{width:100%; height:auto; display:block; border-radius:8px; background:#000}
   .histplay{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
     width:52px; height:52px; border-radius:50%; border:2px solid rgba(255,255,255,.85); cursor:pointer;
     background:rgba(0,0,0,.5); color:#fff; font-size:20px; line-height:1; padding-left:3px;
@@ -1364,8 +1364,8 @@ function histPlay(btn){
 }
 async function toggleHistory(id, kind){
   const el = document.getElementById(`hist-${kind}-${id}`);
-  if(el.style.display === 'block'){ el.style.display = 'none'; return; }
-  el.style.display = 'block';
+  if(el.style.display !== 'none'){ el.style.display = 'none'; return; }
+  el.style.display = '';   // clear inline so the .histpanel grid layout from CSS applies
   el.innerHTML = '<div class="hint">Loading previous versions…</div>';
   const list = await (await fetch(P('/api/history') + `&scene=${id}&kind=${kind}`)).json();
   if(!Array.isArray(list) || !list.length){
