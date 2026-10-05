@@ -84,6 +84,11 @@
   select:focus{outline:none; border-color:var(--magenta)}
   .hint{font-size:11px; color:var(--muted); margin-top:6px; max-width:320px; line-height:1.4}
   .savehint{font-size:11px; color:var(--cyan); margin-left:8px; opacity:.85; font-weight:600}
+  .confirmback{position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px}
+  .confirmbox{background:var(--panel,#1a1320); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:20px; max-width:440px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .confirmmsg{white-space:pre-wrap; line-height:1.45; margin-bottom:14px; font-size:14px}
+  .confirmbox #confirminput{width:100%; margin-bottom:14px}
+  .confirmrow{display:flex; gap:8px; justify-content:flex-end}
   optgroup{color:var(--gold)}
 
   .card{display:grid; grid-template-columns:340px 1fr; gap:22px; background:linear-gradient(180deg,var(--panel),#0d0810);
@@ -293,6 +298,17 @@
         <div class="hint" style="margin-bottom:10px">Each shot is prefilled with a visual prompt and a voiceover line — edit before creating, then generate each shot from its card.</div>
         <div id="idea-shots"></div>
         <button class="btn-magenta" id="idea-create" onclick="ideaCreate()">Create project with these shots ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirmback" id="confirmback" style="display:none" onclick="if(event.target===this)_confirmDone(false)">
+    <div class="confirmbox">
+      <div class="confirmmsg" id="confirmmsg"></div>
+      <input type="text" id="confirminput" style="display:none" onkeydown="if(event.key==='Enter')_confirmDone(true);if(event.key==='Escape')_confirmDone(false)">
+      <div class="confirmrow">
+        <button class="btn-ghost btn-sm" onclick="_confirmDone(false)">Cancel</button>
+        <button class="btn-magenta btn-sm" id="confirmok" onclick="_confirmDone(true)">OK</button>
       </div>
     </div>
   </div>
@@ -992,7 +1008,7 @@ function switchVersion(sid, kind){
 async function useVersion(sid, kind){
   const sel = document.getElementById(`ver-${kind}-${sid}`);
   if(!sel.value) return;
-  if(!confirm("Make this draft the current (live) version?\n\nThe existing current version is archived to _history first, so nothing is lost.")) return;
+  if(!await uiConfirm("Make this draft the current (live) version?\n\nThe existing current version is archived to _history first, so nothing is lost.")) return;
   const r = await postJSON('/api/restore-version', {id: sel.value});
   if(r.ok){ flash(`Shot ${sid} now uses the selected ${kind} draft`); loadScenes(); }
   else flash('Error: '+(r.error||'?'));
@@ -1025,13 +1041,13 @@ async function buildSavedPanel(){
   }
 }
 async function restoreVersion(vid){
-  if(!confirm("Restore this saved clip to its shot?\n\nThe shot's current version is archived to _history first, so nothing is lost.")) return;
+  if(!await uiConfirm("Restore this saved clip to its shot?\n\nThe shot's current version is archived to _history first, so nothing is lost.")) return;
   const r = await postJSON('/api/restore-version', {id:vid});
   if(r.ok){ flash(`Restored to Shot ${r.restored_to}`); loadScenes(); }
   else flash('Error: '+(r.error||'?'));
 }
 async function deleteVersion(vid){
-  if(!confirm('Delete this saved clip permanently?')) return;
+  if(!await uiConfirm('Delete this saved clip permanently?')) return;
   const r = await postJSON('/api/delete-version', {id:vid});
   if(r.ok){ flash('Saved clip deleted'); buildSavedPanel(); }
   else flash('Error: '+(r.error||'?'));
@@ -1218,6 +1234,35 @@ function pickFile(id){
 }
 
 /* ---------- queue actions ---------- */
+/* ---------- in-page confirm / prompt (window.confirm/prompt are no-ops in the app's browser pane) ---------- */
+let _confirmResolver = null;
+function _confirmDone(ok){
+  const back = document.getElementById('confirmback');
+  back.style.display = 'none';
+  const inp = document.getElementById('confirminput');
+  const val = (inp.style.display !== 'none') ? (ok ? inp.value : null) : ok;
+  const r = _confirmResolver; _confirmResolver = null;
+  if(r) r(val);
+}
+function uiConfirm(msg){
+  return new Promise(res => {
+    _confirmResolver = res;
+    document.getElementById('confirmmsg').textContent = msg;
+    document.getElementById('confirminput').style.display = 'none';
+    document.getElementById('confirmback').style.display = 'flex';
+  });
+}
+function uiPrompt(msg, def){
+  return new Promise(res => {
+    _confirmResolver = res;
+    document.getElementById('confirmmsg').textContent = msg;
+    const inp = document.getElementById('confirminput');
+    inp.style.display = 'block'; inp.value = def || '';
+    document.getElementById('confirmback').style.display = 'flex';
+    setTimeout(() => { inp.focus(); inp.select(); }, 40);
+  });
+}
+
 /* ---------- auto-save scene edits (prompt / vo text / soul / duration) ---------- */
 let _autosaveTimers = {};
 function autosaveScene(id, field, value, hintId){
@@ -1289,7 +1334,7 @@ async function syncFromLive(){
   try{
     let res = await postJSON('/api/sync-from-live', body);
     if(res.need_password){
-      const pw = prompt('Live site password (to pull cloud data):');
+      const pw = await uiPrompt('Live site password (to pull cloud data):');
       if(!pw){ return; }
       localStorage.setItem('livePw', pw);
       res = await postJSON('/api/sync-from-live', {password: pw});
@@ -1325,7 +1370,7 @@ async function toggleHistory(id, kind){
   }).join('');
 }
 async function revertHistory(id, kind, file){
-  if(!confirm('Revert this shot to the selected previous version?\n\nThe current one is archived first, so you can switch back to it too.')) return;
+  if(!await uiConfirm('Revert this shot to the selected previous version?\n\nThe current one is archived first, so you can switch back to it too.')) return;
   const r = await postJSON('/api/revert-history', {scene:id, kind, file});
   if(r.ok){ flash(`Reverted shot ${id} ${kind==='vo'?'voiceover':'video'} to a previous render`); loadScenes(); }
   else flash('Error: '+(r.error||'?'));
@@ -1358,7 +1403,7 @@ async function del(id){ await postJSON('/api/delete', {id}); loadQueue(); }
 async function deleteScene(id){
   const s = SCENES.find(x=>x.id===id);
   const title = s ? (s.title||('Shot '+id)) : ('Shot '+id);
-  if(!confirm(`Delete "${title}" from this project?\n\nIts video, voiceover and thumbnail are archived to assets/_history/ (recoverable), and it's removed from the film.`)) return;
+  if(!await uiConfirm(`Delete "${title}" from this project?\n\nIts video, voiceover and thumbnail are archived to assets/_history/ (recoverable), and it's removed from the film.`)) return;
   const r = await postJSON('/api/delete-scene', {scene:id});
   if(r.ok){ flash(`Deleted shot ${id} (archived)`); loadScenes(); loadQueue(); }
   else flash('Error: '+(r.error||'?'));
@@ -1380,7 +1425,7 @@ async function copyForClaude(){
     txt += '\n';
   }
   try{ await navigator.clipboard.writeText(txt); flash('Copied — paste into Claude'); }
-  catch(_){ prompt('Copy this for Claude:', txt); }
+  catch(_){ uiPrompt('Copy this for Claude (select all, then copy):', txt); }
 }
 
 /* ---------- add clip ---------- */
@@ -1441,7 +1486,7 @@ async function checkApiWallet(){
 async function runQueue(){
   const q = await (await fetch(P('/api/queue'))).json();
   if(!q.length){ flash('Queue is empty'); return; }
-  if(!confirm(`Generate ${q.length} pending item(s) for this project through Higgsfield? This spends credits.`)) return;
+  if(!await uiConfirm(`Generate ${q.length} pending item(s) for this project through Higgsfield? This spends credits.`)) return;
   const res = await postJSON('/api/run-queue', {});
   if(res.error){ flash('Error: '+res.error); return; }
   flash('Generation started…');
